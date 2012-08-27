@@ -69,7 +69,7 @@ var FPSCounter = (function(){
     this.slots = [];
     for (var i = 0; i < rows; i++ ){
         var r = [];
-        for ( var j = 0; j < cols; j++)
+        for ( var j = 0; j < (cols - (i - Math.floor(i/2)*2)); j++)
             r.push(null);
         this.slots.push(r);
     }
@@ -253,7 +253,7 @@ Grid.prototype.removeBubble = function(i,j){
                 
                 dc.strokeStyle = "#555555";
                 for(var i=0; i<world.bubblegrid.slots.length;i++)
-                    for(var j=0; j<world.bubblegrid.slots[0].length;j++){
+                    for(var j=0; j<world.bubblegrid.slots[i].length;j++){
                         var pos = world.bubblegrid.getCoordForPos(i,j);
                         dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                     }
