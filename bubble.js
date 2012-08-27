@@ -19,6 +19,18 @@ function relMouseCoords(event){
 HTMLCanvasElement.prototype.relMouseCoords = relMouseCoords;
 
 
+//Returns true if the circles are touching, or false if they are not
+function circlesColliding(x1, y1, radius1, x2, y2, radius2){
+    //compare the distance to combined radii
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var radii = radius1 + radius2;
+    if ( ( dx * dx )  + ( dy * dy ) < radii * radii )
+        return true;
+    else
+        return false;
+}
+
 var Colors = (function(){
         var random = function(){
             return Math.floor((Math.random()*256));
@@ -101,28 +113,6 @@ Grid.prototype.hasBubbleLeft = function(i,j){
 Grid.prototype.hasBubbleRight = function(i,j){
     return ((j+1)<this.cols&&(this.slots[i][j+1]!=null))?true:false;
 }
-
-
-Grid.prototype.isCellAttachable = function(i,j){
-    var row = i;
-    var col = j;
-    if(row>=0 && col>=0){
-        var posClear = (this.getBubbleAt(i,j) == null);
-        var upPos = ((i-1)>=0)?(this.hasBubbleUp(i,j)):true;
-        var leftPos = false;//this.hasBubbleLeft(i,j);
-        var rightPos = false;//this.hasBubbleRight(i,j);
-        var evenRow = ((i-Math.floor(i/2)*2)==0)?true:false;
-        var upRightLeftPos = false;
-        if (!evenRow)//chequeo por up right
-            upRightLeftPos = ((j+1)<this.cols)?this.hasBubbleUp(i,j+1):false;
-        else
-            //chequeo por up left
-            upRightLeftPos = ((j-1)>=0)?this.hasBubbleUp(i,j-1):false;
-        return (posClear && (leftPos | rightPos | upPos | upRightLeftPos));
-    }
-    return false;
-}
-
 
 
 Grid.prototype.addBubble = function(bubble,i,j){
@@ -258,8 +248,10 @@ Grid.prototype.removeBubble = function(i,j){
                         dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                     }
                 
-                Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,370);
-                Renderer.drawText("Bubbles: " + world.bubbles.length,10,382);
+                Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
+                Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
+                Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
+
             }
         }
 
@@ -316,20 +308,20 @@ Grid.prototype.removeBubble = function(i,j){
                     this.deadBubbles.push(i);
         }
         
-        //si es un disparo verifico fijacion
+        //si hay un disparo verifico fijacion
         for(var i = 0; i<this.firedBubbles.length;i++){
               var b = this.firedBubbles[i];
-              if(b.p.y < 0) {
-                this.firedBubbles.splice(0,1);
-              } else {
-                  var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
-                  if(pos)
-                      if(w.bubblegrid.isCellAttachable(pos.i,pos.j)){
+                  var collides = false;
+                  for (var i = 0; i<this.bubbles.length;i++){
+                      var b2 = this.bubbles[i];
+                      if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) {collides = true; break;}
+                  }
+                  if(collides||(b.p.y<this.bh)){
+                        var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
                         console.log("attach");
                         this.bubblegrid.addBubble(b,pos.i,pos.j);                        
                         this.firedBubbles.pop();
-                      };
-              }
+                  }
         }
         
         //quito las que no estan mas en pantallas;
@@ -380,7 +372,7 @@ var init = function(){
     
     dc = c.getContext("2d");
     w = new World(250,400);
-    //w.setup();
+    w.setup();
     
     var mouseclick = false;
     var mousepos = null;
@@ -433,5 +425,6 @@ var init = function(){
     gameLoop(date.getTime());
 
 }
+
 
 window.onload = init;
