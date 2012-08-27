@@ -59,10 +59,13 @@ var FPSCounter = (function(){
     }
 })();
 
- function Grid(rows,cols){
+ function Grid(rows,cols,bw,bh){
     this.baseY = 0;
     this.rows = rows;
     this.cols = cols;
+    this.bw = bw;
+    this.bh = bh;
+    this.cw = bw * 0.5;
     this.slots = [];
     for (var i = 0; i < rows; i++ ){
         var r = [];
@@ -72,13 +75,14 @@ var FPSCounter = (function(){
     }
  }
 
-Grid.prototype.getCoordForPos = function(i,j,world){
-    return {x:j*world.bw + world.bw/2 +(i-Math.floor(i/2)*2)*world.bw/2 ,y:i*world.bh + world.bh/2};
+Grid.prototype.getCoordForPos = function(i,j){
+    return {x:j*this.bw +(i-Math.floor(i/2)*2)*this.bw/2 ,y:i*this.bw};
 }
 
-Grid.prototype.getCellIndexForCoord = function(x,y,world){
-    var row = Math.floor(y/world.bw);
-    var col = Math.floor((x-world.bw/2*(row - 2*Math.floor(row/2)))/world.bh);
+Grid.prototype.getCellIndexForCoord = function(x,y){
+    var row = Math.floor(y/this.bw);
+    var col = Math.floor((x-this.bw/2*(row - 2*Math.floor(row/2)))/this.bw);
+    //if();
     return (row>=0 && col>=0)?{i:row,j:col}:null;
 }
 
@@ -99,7 +103,7 @@ Grid.prototype.hasBubbleRight = function(i,j){
 }
 
 
-Grid.prototype.isCellAttachable = function(i,j,world){
+Grid.prototype.isCellAttachable = function(i,j){
     var row = i;
     var col = j;
     if(row>=0 && col>=0){
@@ -122,8 +126,13 @@ Grid.prototype.isCellAttachable = function(i,j,world){
 
 
 Grid.prototype.addBubble = function(bubble,i,j){
-    if(i<=this.rows && j<= this.cols)
+    if(i<=this.rows && j<= this.cols){
+        var wpos = this.getCoordForPos(i,j);
+        bubble.p.x = wpos.x+this.bw/2;
+        bubble.p.y = wpos.y+this.bh/2;
+        bubble.setActive(false);
         this.slots[i][j] = bubble;
+    }
 };
 
 Grid.prototype.removeBubble = function(i,j){
@@ -245,8 +254,8 @@ Grid.prototype.removeBubble = function(i,j){
                 dc.strokeStyle = "#555555";
                 for(var i=0; i<world.bubblegrid.slots.length;i++)
                     for(var j=0; j<world.bubblegrid.slots[0].length;j++){
-                        var pos = world.bubblegrid.getCoordForPos(i,j,world);
-                        dc.strokeRect(pos.x-world.bw/2,pos.y-world.bh/2,world.bw,world.bh);                        
+                        var pos = world.bubblegrid.getCoordForPos(i,j);
+                        dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                     }
                 
                 Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,370);
@@ -261,7 +270,7 @@ Grid.prototype.removeBubble = function(i,j){
         this.w=w;
         this.h=h;
         this.g=-1;
-        this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw));
+        this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw),this.bw,this.bh);
         this.bubbles = [];
         this.deadBubbles = [];
         this.firedBubbles = [];
@@ -313,14 +322,10 @@ Grid.prototype.removeBubble = function(i,j){
               if(b.p.y < 0) {
                 this.firedBubbles.splice(0,1);
               } else {
-                  var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y,this);
+                  var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
                   if(pos)
-                      if(w.bubblegrid.isCellAttachable(pos.i,pos.j,this)){
+                      if(w.bubblegrid.isCellAttachable(pos.i,pos.j)){
                         console.log("attach");
-                        var wpos = this.bubblegrid.getCoordForPos(pos.i,pos.j,w);
-                        b.p.x = wpos.x;
-                        b.p.y = wpos.y;
-                        b.setActive(false);
                         this.bubblegrid.addBubble(b,pos.i,pos.j);                        
                         this.firedBubbles.pop();
                       };
