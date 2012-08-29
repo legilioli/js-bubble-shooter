@@ -19,6 +19,12 @@ function relMouseCoords(event){
 HTMLCanvasElement.prototype.relMouseCoords = relMouseCoords;
 
 
+shuffle = function(o){ //v1.0
+	for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+	return o;
+};
+
+
 //Returns true if the circles are touching, or false if they are not
 function circlesColliding(x1, y1, radius1, x2, y2, radius2){
     //compare the distance to combined radii
@@ -79,6 +85,7 @@ var FPSCounter = (function(){
     this.bh = bh;
     this.cw = bw * 0.5;
     this.slots = [];
+    this.marked = [];
     for (var i = 0; i < rows; i++ ){
         var r = [];
         for ( var j = 0; j < (cols - (i - Math.floor(i/2)*2)); j++)
@@ -114,6 +121,44 @@ Grid.prototype.hasBubbleRight = function(i,j){
     return ((j+1)<this.cols&&(this.slots[i][j+1]!=null))?true:false;
 }
 
+Grid.prototype.getBubbleLeft=function(i,j){
+    return (this.hasBubbleLeft(i,j))?this.slots[i][j-1]:null;
+}
+
+Grid.prototype.getBubbleRight=function(i,j){
+    return (this.hasBubbleRight(i,j))?this.slots[i][j+1]:null;
+}
+
+
+Grid.prototype.isRowEven = function(i){
+    return ((i-Math.floor(i/2)*2)==0)?true:false;
+}
+
+Grid.prototype.hasBubbleUpRight=function(i,j){
+    if((i-1)<0 || (i>this.slots.length)) return false;
+    var evenrow = this.isRowEven(i,j);
+    var jj = (evenrow)?j:j+1;
+    return (jj<(this.slots[i-1].length))?(this.slots[i-1][jj]!=null):false;
+}
+
+Grid.prototype.getBubbleUpRight=function(i,j){
+    if (this.hasBubbleUpRight(i,j))
+        return this.slots[i-1][(this.isRowEven(i))?j:j+1];
+    return null;
+}
+
+Grid.prototype.hasBubbleUpLeft=function(i,j){
+    if((i-1)<0 || (i>this.slots.length)) return false;
+    var evenrow = this.isRowEven(i,j);
+    var jj = (evenrow)?j-1:j;
+    return (jj>=0 && jj<this.slots[i-1].length)?(this.slots[i-1][jj]!=null):false;
+}
+
+Grid.prototype.getBubbleUpLeft=function(i,j){
+    if (this.hasBubbleUpLeft(i,j))
+        return this.slots[i-1][(this.isRowEven(i))?j-1:j];
+    return null;
+}
 
 Grid.prototype.addBubble = function(bubble,i,j){
     if(i<=this.rows && j<= this.cols){
@@ -129,15 +174,73 @@ Grid.prototype.removeBubble = function(i,j){
         this.slots[i][j] = null;
 };
 
+Grid.prototype.getAdjacentBubbles = function(i,j){
+    var isroweven = ((i-Math.floor(i/2)*2)==0)?true:false;
+    var bubbles = [];
+    if (this.hasBubbleLeft(i,j)) bubbles.push(this.getBubbleLeft(i,j));
+    if (this.hasBubbleRight(i,j)) bubbles.push(this.getBubbleRight(i,j));
+    if (this.hasBubbleUpRight(i,j)) bubbles.push(this.getBubbleUpRight(i,j));
+    if (this.hasBubbleUpLeft(i,j)) bubbles.push(this.getBubbleUpLeft(i,j));
+    return bubbles;
+};
+
+Grid.prototype.markBubble = function(i,j,value){
+    this.slots[i][j].setMarked(true);
+    this.marked.push({i:i,j:j});
+    //this.removeBubble(i,j);
+    var adj = this.getAdjacentBubbles(i,j);
+//    console.log("num: " + adj.length);
+//    if(adj) console.log(adj);
+    for(var i=0; i<adj.length;i++)
+        if((adj[i].mark==false) && (adj[i].value == value)){
+            console.log("marcar!");
+            var pos = this.getCellIndexForCoord(adj[i].p.x,adj[i].p.y);   
+            this.markBubble(pos.i,pos.j,value);
+        }
+};
+
+Grid.prototype.popMarkedBubbles = function(){
+console.log("popping " +  this.marked.length + " bubbles");
+    if(this.marked.length>2)
+        for(var i = 0; i<this.marked.length;i++){
+            var p = this.marked[i];
+            var b = this.getBubbleAt(p.i,p.j);
+            b.pop();
+            this.removeBubble(p.i,p.j)
+        }
+}
+
+Grid.prototype.clearMarkedBubbles = function(){
+    for(var i = 0; i<this.marked.length;i++){
+        var p = this.marked[i];
+        var b = this.getBubbleAt(p.i,p.j);
+        if(b) b.setMarked(false);
+    }
+    this.marked.length = 0;
+}
+
+Grid.prototype.markAll = function(){
+    for(var i = 0; i<this.slots.length; i++)
+        for (var j = 0; j<this.slots[i].length;j++){
+            if(this.slots[i][j]!=null){
+                this.slots[i][j].setMarked(true);
+                this.marked.push({i:i,j:j});
+            }
+        }
+}
+
 
  function Bubble(x,y,r){
-        this.color = Colors.randomColor();
+        this.color = Colors.randomColor();      
+//        this.color = shuffle(["red","green","yellow","bl"])[0];
         this.p = {x:x,y:y};
         this.v = {x:0,y:0};
         this.g = {x:0,y:0};
         this.r = r;
         this.active = true;
         this.popped = false;
+        this.mark = false;
+        this.value = shuffle([0,1/*,2,3,4*/])[0];
     }
 
     Bubble.prototype.step = function(dt){
@@ -175,6 +278,10 @@ Grid.prototype.removeBubble = function(i,j){
         this.active = active;
     }
 
+    Bubble.prototype.setMarked = function(marked){
+        this.mark = marked;
+    }
+
     Bubble.prototype.stop = function(){
         this.p.y = this.p.x = 0;
     }
@@ -190,12 +297,13 @@ Grid.prototype.removeBubble = function(i,j){
     var Renderer = (function(){
 
         var drawBoard = function(dc,x,y,w,h){
-            dc.fillStyle = "rgb(20,20,20)";        
+            dc.fillStyle = "rgb(20,20,250)";        
             dc.fillRect(0,0,w,h);
         }
 
-        return {
         
+        return {
+            color:["red","green","blue","yellow","white"],
             drawText:function(text,x,y){
                 dc.font = "12px sans-serif";
                 dc.fillStyle = "rgb(0,0,0)";      
@@ -204,7 +312,7 @@ Grid.prototype.removeBubble = function(i,j){
         
             drawBubble:function(bubble,dc){
                 dc.beginPath();
-                dc.fillStyle = bubble.color;
+                dc.fillStyle = this.color[bubble.value];//bubble.color;
                 dc.lineWidth = 1.5;
                 dc.arc(0,0,bubble.r,0,360,false);
                 dc.fill();
@@ -212,8 +320,10 @@ Grid.prototype.removeBubble = function(i,j){
                 dc.stroke();
                 dc.closePath();
                 dc.lineWidth = 1.0;
-//                dc.strokeStyle = "#00FF00";
-//                dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
+                if(bubble.mark){
+                    dc.strokeStyle = "#00FF00";
+                    dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
+                }
                 dc.strokeStyle = "#FF0000";
                 dc.strokeRect(0,0,1,1);
 
@@ -227,7 +337,7 @@ Grid.prototype.removeBubble = function(i,j){
             },
             
             drawBoard:function(dc,x,y,w,h){
-                dc.fillStyle = "rgb(200,200,200)";        
+                dc.fillStyle = "rgb(100,100,100)";        
                 dc.fillRect(0,0,w,h);
                 dc.strokeStyle = "rgb(0,0,0)";
                 dc.strokeRect(0,0,w,h);
@@ -236,10 +346,6 @@ Grid.prototype.removeBubble = function(i,j){
 
             drawWorld:function(world,dc){
                 Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
-                for (var i=0; i<world.bubbles.length;i++){
-                    var b = world.bubbles[i];
-                    Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
-                }
                 
                 dc.strokeStyle = "#555555";
                 for(var i=0; i<world.bubblegrid.slots.length;i++)
@@ -247,6 +353,13 @@ Grid.prototype.removeBubble = function(i,j){
                         var pos = world.bubblegrid.getCoordForPos(i,j);
                         dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                     }
+                    
+                for (var i=0; i<world.bubbles.length;i++){
+                    var b = world.bubbles[i];
+                    Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                }
+                
+
                 
                 Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
                 Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
@@ -304,7 +417,7 @@ Grid.prototype.removeBubble = function(i,j){
             if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
                 b.v.x *=-1;
             //chequeo por salidas del area de pantalla
-            if(b.p.x > this.w || b.p.y > this.h || b.p.y < 0)
+            if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
                     this.deadBubbles.push(i);
         }
         
@@ -313,21 +426,30 @@ Grid.prototype.removeBubble = function(i,j){
               var b = this.firedBubbles[i];
                   var collides = false;
                   for (var i = 0; i<this.bubbles.length;i++){
-                      var b2 = this.bubbles[i];
-                      if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) {collides = true; break;}
+                          var b2 = this.bubbles[i];
+                          if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) 
+                          {collides = true; break;}
                   }
                   if(collides||(b.p.y<this.bh)){
                         var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
                         console.log("attach");
-                        this.bubblegrid.addBubble(b,pos.i,pos.j);                        
+                        if (collides) console.log("COLLIDE!!!");
+                        this.bubblegrid.addBubble(b,pos.i,pos.j);
+                        this.bubblegrid.markBubble(pos.i,pos.j,b.value);
+                        console.log("se marcaron " + this.bubblegrid.marked.length);
+                        this.bubblegrid.popMarkedBubbles();
+                        this.bubblegrid.clearMarkedBubbles();
                         this.firedBubbles.pop();
                   }
         }
         
         //quito las que no estan mas en pantallas;
-        for (var j = 0; j< this.deadBubbles.length;j++)
-            this.bubbles.splice(this.deadBubbles[j],1);        
-        this.deadBubbles.splice(0,this.deadBubbles.length);                
+        if(this.deadBubbles.length>0){
+            for (var j = 0; j< this.deadBubbles.length;j++)
+                this.bubbles[this.deadBubbles[j]] = null;
+            this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
+            this.deadBubbles.length = 0; 
+        }        
     }
     
     World.prototype.fireBubble = function(target){
@@ -394,8 +516,6 @@ var init = function(){
             var wpos = screen2World(mousepos);
             w.fireBubble(wpos);
             var p = w.bubblegrid.getCellIndexForCoord(wpos.x,wpos.y,w);
-            //console.log(p);
-            //console.log("pos: "+p.i+","+p.j);
             if (p){
             var b = w.bubblegrid.getBubbleAt(p.i,p.j);
                 if(b) {
@@ -418,7 +538,7 @@ var init = function(){
         dc.translate(75,0);
         Renderer.drawWorld(w,dc);
         dc.restore();
-        requestAnimationFrame(function(){gameLoop(now)});
+        requestAnimationFrame(function(){gameLoop(now)},c);
     }
 
     var date = new Date();
