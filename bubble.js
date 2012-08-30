@@ -160,6 +160,34 @@ Grid.prototype.getBubbleUpLeft=function(i,j){
     return null;
 }
 
+
+Grid.prototype.hasBubbleDownLeft = function(i,j){
+    if((i<0)||(i>this.slots.length)) return false;
+    var evenrow = this.isRowEven(i,j);
+    var jj = (evenrow)?j-1:j;
+    return (jj>=0 && jj<this.slots[i+1].length)?(this.slots[i+1][jj]!=null):false;
+}
+
+Grid.prototype.getBubbleDownLeft = function(i,j){
+    if (this.hasBubbleDownLeft(i,j))
+        return this.slots[i+1][(this.isRowEven(i))?j-1:j];
+    return null;
+}
+
+Grid.prototype.hasBubbleDownRight=function(i,j){
+    if((i<0)||(i>this.slots.length)) return false;
+    var evenrow = this.isRowEven(i,j);
+    var jj = (evenrow)?j:j+1;
+    return (jj<(this.slots[i+1].length))?(this.slots[i+1][jj]!=null):false;
+}
+
+Grid.prototype.getBubbleDownRight=function(i,j){
+    if (this.hasBubbleDownRight(i,j))
+        return this.slots[i+1][(this.isRowEven(i))?j:j+1];
+    return null;
+}
+
+
 Grid.prototype.addBubble = function(bubble,i,j){
     if(i<=this.rows && j<= this.cols){
         var wpos = this.getCoordForPos(i,j);
@@ -175,12 +203,13 @@ Grid.prototype.removeBubble = function(i,j){
 };
 
 Grid.prototype.getAdjacentBubbles = function(i,j){
-    var isroweven = ((i-Math.floor(i/2)*2)==0)?true:false;
     var bubbles = [];
     if (this.hasBubbleLeft(i,j)) bubbles.push(this.getBubbleLeft(i,j));
     if (this.hasBubbleRight(i,j)) bubbles.push(this.getBubbleRight(i,j));
     if (this.hasBubbleUpRight(i,j)) bubbles.push(this.getBubbleUpRight(i,j));
     if (this.hasBubbleUpLeft(i,j)) bubbles.push(this.getBubbleUpLeft(i,j));
+    if (this.hasBubbleDownLeft(i,j)) bubbles.push(this.getBubbleDownLeft(i,j));
+    if (this.hasBubbleDownRight(i,j)) bubbles.push(this.getBubbleDownRight(i,j));
     return bubbles;
 };
 
@@ -240,7 +269,7 @@ Grid.prototype.markAll = function(){
         this.active = true;
         this.popped = false;
         this.mark = false;
-        this.value = shuffle([0,1/*,2,3,4*/])[0];
+        this.value = shuffle([0,1,2,3/*,4*/])[0];
     }
 
     Bubble.prototype.step = function(dt){
@@ -479,8 +508,8 @@ var init = function(){
                 }
     })();
 
-    function screen2World(pos){
-        return {x:pos.x-75,y:pos.y};
+    function screen2World(pos,world){
+        return {x:pos.x,y:pos.y};
     }
 
 
@@ -493,7 +522,7 @@ var init = function(){
     }
     
     dc = c.getContext("2d");
-    w = new World(250,400);
+    w = new World(c.width,c.height);
     w.setup();
     
     var mouseclick = false;
@@ -513,13 +542,14 @@ var init = function(){
         
         //process input
         if(mouseclick){
-            var wpos = screen2World(mousepos);
+            var wpos = screen2World(mousepos,w);
             w.fireBubble(wpos);
             var p = w.bubblegrid.getCellIndexForCoord(wpos.x,wpos.y,w);
+            console.log("pos: "+wpos.x+","+wpos.y);
             if (p){
             var b = w.bubblegrid.getBubbleAt(p.i,p.j);
                 if(b) {
-                    console.log("popping");
+                    console.log("popping " +p.i, "," +p.j  );
                     b.pop();
                     w.bubblegrid.removeBubble(p.i,p.j);
                 }   
@@ -535,7 +565,7 @@ var init = function(){
         dc.fillStyle="#FFFFFF";
         dc.fillRect(0,0,c.width,c.height);
         dc.save();
-        dc.translate(75,0);
+        dc.translate(c.width/2 -w.w/2 ,0);
         Renderer.drawWorld(w,dc);
         dc.restore();
         requestAnimationFrame(function(){gameLoop(now)},c);
