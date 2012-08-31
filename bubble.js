@@ -94,6 +94,14 @@ var FPSCounter = (function(){
     }
  }
 
+Grid.prototype.getUpLeftPos = function(i,j){
+    return {i:i-1,j:(this.isRowEven(i))?j-1:j};
+}
+
+Grid.prototype.getUpRightPos = function(i,j){
+    return {i:i-1,j:(this.isRowEven(i))?j:j+1};
+}
+
 Grid.prototype.getCoordForPos = function(i,j){
     return {x:j*this.bw +(i-Math.floor(i/2)*2)*this.bw/2 ,y:i*this.bw};
 }
@@ -136,7 +144,7 @@ Grid.prototype.isRowEven = function(i){
 
 Grid.prototype.hasBubbleUpRight=function(i,j){
     if((i-1)<0 || (i>this.slots.length)) return false;
-    var evenrow = this.isRowEven(i,j);
+    var evenrow = this.isRowEven(i);
     var jj = (evenrow)?j:j+1;
     return (jj<(this.slots[i-1].length))?(this.slots[i-1][jj]!=null):false;
 }
@@ -149,7 +157,7 @@ Grid.prototype.getBubbleUpRight=function(i,j){
 
 Grid.prototype.hasBubbleUpLeft=function(i,j){
     if((i-1)<0 || (i>this.slots.length)) return false;
-    var evenrow = this.isRowEven(i,j);
+    var evenrow = this.isRowEven(i);
     var jj = (evenrow)?j-1:j;
     return (jj>=0 && jj<this.slots[i-1].length)?(this.slots[i-1][jj]!=null):false;
 }
@@ -258,6 +266,34 @@ Grid.prototype.markAll = function(){
         }
 }
 
+Grid.prototype.isBubbleOrphan = function(i,j){
+    if(i==0) return false;
+    var upright = this.getBubbleUpRight(i,j); 
+    var upleft = this.getBubbleUpLeft(i,j); 
+    var hasupright = this.hasBubbleUpRight(i,j);
+    var hasupleft = this.hasBubbleUpLeft(i,j);
+    var uL = this.getUpLeftPos(i,j);
+    var uR = this.getUpRightPos(i,j);
+    if( hasupright && hasupleft)
+        return (this.isBubbleOrphan(uR.i,uR.j)&&this.isBubbleOrphan(uL.i,uL.j));
+    if(this.hasBubbleUpRight(i,j))
+        return this.isBubbleOrphan(uR.i,uR.j);
+    if(this.hasBubbleUpLeft(i,j))
+        return this.isBubbleOrphan(uL.i,uL.j);
+    return true;
+}
+
+Grid.prototype.detachOrphanBubbles = function(){
+    for(var i = 0; i<this.slots.length; i++)
+        for (var j = 0; j<this.slots[i].length;j++){
+            var b = this.slots[i][j];
+            if(b && this.isBubbleOrphan(i,j)){
+                this.removeBubble(i,j);
+                b.fall();
+            }            
+        }
+};
+
 
  function Bubble(x,y,r){
         this.color = Colors.randomColor();      
@@ -269,7 +305,7 @@ Grid.prototype.markAll = function(){
         this.active = true;
         this.popped = false;
         this.mark = false;
-        this.value = shuffle([0,1,2,3/*,4*/])[0];
+        this.value = shuffle([0,1,/*2,3,4*/])[0];
     }
 
     Bubble.prototype.step = function(dt){
@@ -322,6 +358,14 @@ Grid.prototype.markAll = function(){
         this.setActive(true);
         this.popped = true;
     }
+
+    Bubble.prototype.fall = function(){
+        this.g = {x:0,y:(0.0005)};
+        this.v.x=0; this.v.y=0.02*this.p.y/this.r;
+        this.setActive(true);
+        this.popped = true;
+    }
+
 
     var Renderer = (function(){
 
@@ -468,6 +512,7 @@ Grid.prototype.markAll = function(){
                         console.log("se marcaron " + this.bubblegrid.marked.length);
                         this.bubblegrid.popMarkedBubbles();
                         this.bubblegrid.clearMarkedBubbles();
+                        this.bubblegrid.detachOrphanBubbles();
                         this.firedBubbles.pop();
                   }
         }
