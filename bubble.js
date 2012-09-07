@@ -372,40 +372,66 @@ Bubble.prototype.setActive = function(active){
             dc.fillRect(0,0,w,h);
         }
 
+        var color = ["red","green","blue","yellow","white"];
+        var bw = 25;
+        var bh = 25;
+        var greenBubble = document.createElement('canvas');
+        var redBubble = document.createElement('canvas');
+        greenBubble.width = greenBubble.width =  bw;
+        greenBubble.height = greenBubble.height =  bh;
+        
+        var gb = greenBubble.getContext("2d");
+        var rb = redBubble.getContext("2d");
+
+
+        var drawBubble = function(bubble,dc){
+            dc.beginPath();
+            dc.fillStyle = color[bubble.value];//bubble.color;
+            dc.lineWidth = 1.5;
+            dc.arc(0,0,bubble.r*0.95,0,360,false);
+            dc.fill();
+            dc.strokeStyle = "#000000";
+            dc.stroke();
+            dc.closePath();
+            dc.lineWidth = 1.0;
+            if(bubble.mark){
+                dc.strokeStyle = "#00FF00";
+                dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
+            }
+            dc.strokeStyle = "#FF0000";
+            dc.strokeRect(0,0,1,1);
+        };
+
+        //prerender de bolas
+        modelBubble = new Bubble(0,0,bw/2);
+        modelBubble.value = 0;
+        gb.save();
+        gb.translate(bw/2,bh/2);
+        drawBubble(modelBubble,gb);
+        gb.restore();
+
+        modelBubble.value = 1;
+        rb.save();
+        rb.translate(bw/2,bh/2);
+        drawBubble(modelBubble,rb);
+        rb.restore();
+
+        var prerenders = [greenBubble,redBubble];
         
         return {
-            color:["red","green","blue","yellow","white"],
+            greenBubble:greenBubble,
+            
             drawText:function(text,x,y){
                 dc.font = "12px sans-serif";
                 dc.fillStyle = "rgb(0,0,0)";      
                 dc.fillText(text,x,y);
             },
         
-            drawBubble:function(bubble,dc){
-                dc.beginPath();
-                dc.fillStyle = this.color[bubble.value];//bubble.color;
-                dc.lineWidth = 1.5;
-                dc.arc(0,0,bubble.r,0,360,false);
-                dc.fill();
-                dc.strokeStyle = "#000000";
-                dc.stroke();
-                dc.closePath();
-                dc.lineWidth = 1.0;
-                if(bubble.mark){
-                    dc.strokeStyle = "#00FF00";
-                    dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
-                }
-                dc.strokeStyle = "#FF0000";
-                dc.strokeRect(0,0,1,1);
-
-//                dc.fillStyle = this.color[bubble.value];//bubble.color;
-//                dc.fillRect(0,0,12.5,12.5);
-            },
 
             drawBubbleXY:function(bubble,dc,x,y){
                 dc.save();
-                dc.translate(x,y);
-                Renderer.drawBubble(bubble,dc);
+                dc.translate(x-bw/2,y-bh/2);
+                dc.drawImage(prerenders[bubble.value],0,0);
                 dc.restore();
             },
             
@@ -437,6 +463,7 @@ Bubble.prototype.setActive = function(active){
                 Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
 
             }
+        
         }
 
     })();
