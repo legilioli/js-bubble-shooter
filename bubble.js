@@ -223,6 +223,20 @@ Grid.prototype.getAdjacentBubbles = function(i,j){
     return bubbles;
 };
 
+Grid.prototype.markBubble2 = function(i,j){
+    this.slots[i][j].setOrphan(false);
+    var adj = this.getAdjacentBubbles(i,j);
+    for(var i=0; i<adj.length;i++)
+        if(adj[i].orphan){
+            var pos = this.getCellIndexForCoord(adj[i].p.x,adj[i].p.y);   
+            this.markBubble2(pos.i,pos.j);
+        }
+};
+
+
+
+
+
 Grid.prototype.markBubble = function(i,j,value){
     this.slots[i][j].setMarked(true);
     this.marked.push({i:i,j:j});
@@ -284,10 +298,20 @@ Grid.prototype.isBubbleOrphan = function(i,j){
 }
 
 Grid.prototype.detachOrphanBubbles = function(){
+
+    for(var i = 0; i < this.slots.length;i++)
+        for(var j = 0; j < this.slots[i].length;j++)
+            if (this.slots[i][j])
+                this.slots[i][j].setOrphan(true);        
+        
+    for (var i = 0; i < this.slots[0].length; i++)
+        if (this.slots[0][i])
+            this.markBubble2(0,i);        
+
     for(var i = 0; i<this.slots.length; i++)
         for (var j = 0; j<this.slots[i].length;j++){
             var b = this.slots[i][j];
-            if(b && this.isBubbleOrphan(i,j)){
+            if(b && this.slots[i][j].orphan){
                 this.removeBubble(i,j);
                 b.fall();
             }            
@@ -303,6 +327,7 @@ function Bubble(x,y,r){
     this.active = true;
     this.popped = false;
     this.mark = false;
+    this.orphan = false;
     this.value = shuffle([0,1,/*2,3,4*/])[0];
 }
 
@@ -339,6 +364,10 @@ Bubble.prototype.setR = function(radius){
 
 Bubble.prototype.setActive = function(active){
     this.active = active;
+}
+
+Bubble.prototype.setOrphan = function(orphan){
+    this.orphan = orphan;
 }
 
     Bubble.prototype.setMarked = function(marked){
@@ -541,7 +570,7 @@ Bubble.prototype.setActive = function(active){
                             console.log("se marcaron " + this.bubblegrid.marked.length);
                             this.bubblegrid.popMarkedBubbles();
                             this.bubblegrid.clearMarkedBubbles();
-                            //this.bubblegrid.detachOrphanBubbles();
+                            this.bubblegrid.detachOrphanBubbles();
                             this.firedBubbles.pop();
                       }
             }
