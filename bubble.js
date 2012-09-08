@@ -328,7 +328,7 @@ function Bubble(x,y,r){
     this.popped = false;
     this.mark = false;
     this.orphan = false;
-    this.value = shuffle([0,1,/*2,3,4*/])[0];
+    this.value = shuffle([0,1,2,3,4])[0];
 }
 
 Bubble.prototype.step = function(dt){
@@ -370,13 +370,13 @@ Bubble.prototype.setOrphan = function(orphan){
     this.orphan = orphan;
 }
 
-    Bubble.prototype.setMarked = function(marked){
-        this.mark = marked;
-    }
+Bubble.prototype.setMarked = function(marked){
+    this.mark = marked;
+}
 
-    Bubble.prototype.stop = function(){
-        this.p.y = this.p.x = 0;
-    }
+Bubble.prototype.stop = function(){
+    this.p.y = this.p.x = 0;
+}
 
     Bubble.prototype.pop = function(){
         this.g = {x:0,y:0.001};
@@ -401,17 +401,13 @@ Bubble.prototype.setOrphan = function(orphan){
             dc.fillRect(0,0,w,h);
         }
 
-        var color = ["red","green","blue","yellow","white"];
+        var color = ["rgba(255,0,0,0.5)","green","blue","yellow","white"];
         var bw = 25;
         var bh = 25;
         var greenBubble = document.createElement('canvas');
         var redBubble = document.createElement('canvas');
-        greenBubble.width = greenBubble.width =  bw;
-        greenBubble.height = greenBubble.height =  bh;
+        var bubblesRenders = []; 
         
-        var gb = greenBubble.getContext("2d");
-        var rb = redBubble.getContext("2d");
-
 
         var drawBubble = function(bubble,dc){
             dc.beginPath();
@@ -433,22 +429,23 @@ Bubble.prototype.setOrphan = function(orphan){
 
         //prerender de bolas
         modelBubble = new Bubble(0,0,bw/2);
-        modelBubble.value = 0;
-        gb.save();
-        gb.translate(bw/2,bh/2);
-        drawBubble(modelBubble,gb);
-        gb.restore();
-
-        modelBubble.value = 1;
-        rb.save();
-        rb.translate(bw/2,bh/2);
-        drawBubble(modelBubble,rb);
-        rb.restore();
-
-        var prerenders = [greenBubble,redBubble];
+        
+        
+        for (var i = 0; i< color.length; i++){
+            var c = document.createElement('canvas');
+            c.widht = bw;
+            c.height = bh;
+            dc = c.getContext("2d");
+            modelBubble.value = i;
+            dc.save();
+            dc.translate(modelBubble.r,modelBubble.r);
+            drawBubble(modelBubble,dc);
+            dc.restore();
+            bubblesRenders.push(c);
+        }
+        
         
         return {
-            greenBubble:greenBubble,
             
             drawText:function(text,x,y){
                 dc.font = "12px sans-serif";
@@ -460,7 +457,7 @@ Bubble.prototype.setOrphan = function(orphan){
             drawBubbleXY:function(bubble,dc,x,y){
                 dc.save();
                 dc.translate(x-bw/2,y-bh/2);
-                dc.drawImage(prerenders[bubble.value],0,0);
+                dc.drawImage(bubblesRenders[bubble.value],0,0);
                 dc.restore();
             },
             
