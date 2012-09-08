@@ -484,6 +484,9 @@ Bubble.prototype.stop = function(){
                     Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
                 }
                 
+                var b = world.nextBubble;                
+                Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                
                 Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
                 Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
                 Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
@@ -503,10 +506,21 @@ Bubble.prototype.stop = function(){
         this.bubbles = [];
         this.deadBubbles = [];
         this.firedBubbles = [];
+        
     }
     
     World.prototype.bw = 25;
     World.prototype.bh = 25;
+    
+    World.prototype.createNextBubble = function(){
+        return new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
+    }
+    
+    World.prototype.getNextBubble = function(){
+        var b = this.nextBubble;
+        this.nextBubble = this.createNextBubble();
+        return b;
+    }
     
     World.prototype.setup = function(){
         var bubblesRows = 5;
@@ -520,6 +534,7 @@ Bubble.prototype.stop = function(){
                 this.bubblegrid.addBubble(b,j,i);
                 this.addBubble(b);
             }
+        this.nextBubble = this.createNextBubble();
     }
 
     World.prototype.addBubble = function(b){
@@ -587,7 +602,7 @@ Bubble.prototype.stop = function(){
     World.prototype.fireBubble = function(target){
         if(this.firedBubbles.length==0){
             var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
-            var b = new Bubble(this.w/2,this.h+1,this.bw/2);
+            var b = this.getNextBubble();
             var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
             b.v.x = dir.x/norma *0.9;
             b.v.y = dir.y/norma * 0.9;
