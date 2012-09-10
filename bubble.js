@@ -103,11 +103,11 @@ Grid.prototype.getUpRightPos = function(i,j){
 }
 
 Grid.prototype.getCoordForPos = function(i,j){
-    return {x:j*this.bw +(i-Math.floor(i/2)*2)*this.bw/2 ,y:i*this.bw};
+    return {x:j*this.bw +(i-Math.floor(i/2)*2)*this.bw/2 ,y:i*this.bw + this.baseY};
 }
 
 Grid.prototype.getCellIndexForCoord = function(x,y){
-    var row = Math.floor(y/this.bw);
+    var row = Math.floor((y-this.baseY)/this.bw);
     var col = Math.floor((x-this.bw/2*(row - 2*Math.floor(row/2)))/this.bw);
     //if();
     return (row>=0 && col>=0)?{i:row,j:col}:null;
@@ -316,6 +316,14 @@ Grid.prototype.detachOrphanBubbles = function(){
                 b.fall();
             }            
         }
+}
+
+Grid.prototype.lowerGrid = function(){
+    this.baseY += this.bh;
+    for (var i = 0; i<this.slots.length;i++)
+        for (var j = 0; j < this.slots[i].length;j++)
+            if(this.slots[i][j]!=null)
+                this.slots[i][j].p.y += this.bh;
 }
 
 function Bubble(x,y,r){
@@ -574,7 +582,7 @@ Bubble.prototype.stop = function(){
                               if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) 
                               {collides = true;break;}
                       }
-                      if(collides||(b.p.y<this.bh)){
+                      if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
                             var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
                             console.log("attach");
                             this.bubblegrid.addBubble(b,pos.i,pos.j);
