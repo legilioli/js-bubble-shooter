@@ -521,7 +521,11 @@ Bubble.prototype.stop = function(){
     World.prototype.bh = 25;
     
     World.prototype.createNextBubble = function(){
-        return new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
+        var index = Math.floor(Math.random()*this.bubbles.length);
+        var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
+        if(this.bubbles.length>0)
+            b.value = this.bubbles[index].value;
+        return b;
     }
     
     World.prototype.getNextBubble = function(){
