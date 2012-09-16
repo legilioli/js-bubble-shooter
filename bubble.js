@@ -92,7 +92,16 @@ function Grid(rows,cols,bw,bh){
             r.push(null);
         this.slots.push(r);
     }
+    this.state = this.states.STILL;
+    this.nextY = 0;
+    this.shakeRot = 0;
 }
+
+Grid.prototype.states = {
+    STILL:0,
+    MOVING_DOWN:1,
+    SHAKING:2,
+};
 
 Grid.prototype.getUpLeftPos = function(i,j){
     return {i:i-1,j:(this.isRowEven(i))?j-1:j};
@@ -318,12 +327,35 @@ Grid.prototype.detachOrphanBubbles = function(){
         }
 }
 
+Grid.prototype.shake = function(doShake){
+    this.state = (doShake)?this.states.SHAKING:this.states.STILL;
+}
+
 Grid.prototype.lowerGrid = function(){
-    this.baseY += this.bh;
-    for (var i = 0; i<this.slots.length;i++)
-        for (var j = 0; j < this.slots[i].length;j++)
-            if(this.slots[i][j]!=null)
-                this.slots[i][j].p.y += this.bh;
+    this.state = this.states.MOVING_DOWN;
+    this.nextY = this.baseY + this.bh;
+
+}
+
+Grid.prototype.step = function(dt){
+    switch (this.state){
+        case this.states.MOVING_DOWN:
+            var stepSize = this.bh/250
+            this.baseY += stepSize*dt;
+            for (var i = 0; i<this.slots.length;i++)
+                for (var j = 0; j < this.slots[i].length;j++)
+                    if(this.slots[i][j]!=null)
+                    this.slots[i][j].p.y += stepSize*dt;
+            if (this.baseY >= this.nextY)
+                this.state = this.states.STILL;
+        break;
+        case this.states.SHAKING:
+            var rotstep = Math.PI*2 / 30;
+            this.shakeRot += rotstep;
+            if (this.shakeRot > Math.PI*2)
+                this.shakeRot -= Math.PI*2;
+        default:
+    }
 }
 
 function Bubble(x,y,r){
@@ -486,12 +518,14 @@ Bubble.prototype.stop = function(){
                         var pos = world.bubblegrid.getCoordForPos(i,j);
                         dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                     }
-                    
+                var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
+                dc.save();
+                dc.translate(dx,0);
                 for (var i=0; i<world.bubbles.length;i++){
                     var b = world.bubbles[i];
-                    Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                    Renderer.drawBubbleXY(b,dc,b.p.x ,b.p.y);
                 }
-                
+                dc.restore();
                 var b = world.nextBubble;                
                 Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
                 
@@ -514,6 +548,8 @@ Bubble.prototype.stop = function(){
         this.bubbles = [];
         this.deadBubbles = [];
         this.firedBubbles = [];
+        this.shots=0;
+        this.shotLimit=6;
         
     }
     
@@ -588,6 +624,12 @@ Bubble.prototype.stop = function(){
                       }
                       if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
                             var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
+                            //evito que se agrege a una celda no habilitada
+                            if (pos == null) { 
+                            pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y); console.log("bbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+                            }
+                            if (pos.j >= this.bubblegrid.slots[pos.i].length) { console.log( "aaaaaaaaaaaaaaaaaaaaa"); pos.j = pos.j-1};
+                            
                             console.log("attach");
                             this.bubblegrid.addBubble(b,pos.i,pos.j);
                             this.bubblegrid.markBubble(pos.i,pos.j,b.value);
@@ -596,6 +638,8 @@ Bubble.prototype.stop = function(){
                             this.bubblegrid.clearMarkedBubbles();
                             this.bubblegrid.detachOrphanBubbles();
                             this.firedBubbles.pop();
+                            this.moveGrid();
+                            
                       }
             }
             
@@ -606,12 +650,16 @@ Bubble.prototype.stop = function(){
                 this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
                 this.deadBubbles.length = 0; 
             }        
+            
+            w.bubblegrid.step(frameTime);
 
         }
 
     }
     
     World.prototype.fireBubble = function(target){
+    
+        this.shots++;
         if(this.firedBubbles.length==0){
             var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
             var b = this.getNextBubble();
@@ -621,6 +669,19 @@ Bubble.prototype.stop = function(){
             this.addBubble(b);
             this.firedBubbles.push(b);
         }
+    }
+    
+    World.prototype.moveGrid = function(){
+    
+        switch (this.shots){
+            case this.shotLimit:
+                this.bubblegrid.lowerGrid();
+                this.shots = 0;
+                break;
+            case this.shotLimit-1:
+                this.bubblegrid.shake(true);
+                break;
+            }
     }
 
 
