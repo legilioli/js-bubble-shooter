@@ -95,6 +95,11 @@ function Grid(rows,cols,bw,bh){
     this.state = this.states.STILL;
     this.nextY = 0;
     this.shakeRot = 0;
+    this.bubblePopUpCallback = null;
+}
+
+Grid.prototype.setBubblePopUpCallback = function(f){
+    this.bubblePopUpCallback = f;
 }
 
 Grid.prototype.states = {
@@ -265,6 +270,7 @@ Grid.prototype.popMarkedBubbles = function(){
         for(var i = 0; i<this.marked.length;i++){
             var p = this.marked[i];
             var b = this.getBubbleAt(p.i,p.j);
+            this.bubblePopUpCallback(b);
             b.pop();
             this.removeBubble(p.i,p.j)
         }
@@ -350,8 +356,8 @@ Grid.prototype.step = function(dt){
                 this.state = this.states.STILL;
         break;
         case this.states.SHAKING:
-            var rotstep = Math.PI*2 / 30;
-            this.shakeRot += rotstep;
+            var rotstep = Math.PI*15;
+            this.shakeRot += rotstep*dt/1000;
             if (this.shakeRot > Math.PI*2)
                 this.shakeRot -= Math.PI*2;
         default:
@@ -414,275 +420,358 @@ Bubble.prototype.setMarked = function(marked){
     this.mark = marked;
 }
 
+Bubble.prototype.isPopped = function(){
+    return this.popped;
+}
+
 Bubble.prototype.stop = function(){
     this.p.y = this.p.x = 0;
 }
 
-    Bubble.prototype.pop = function(){
-        this.g = {x:0,y:0.001};
-        this.v.y = -0.2-Math.random()*0.1;
-        this.v.x = Math.random()*0.2-0.1;
-        this.setActive(true);
-        this.popped = true;
+Bubble.prototype.pop = function(){
+    this.g = {x:0,y:0.001};
+    this.v.y = -0.2-Math.random()*0.1;
+    this.v.x = Math.random()*0.2-0.1;
+    this.setActive(true);
+    this.popped = true;
+}
+
+Bubble.prototype.fall = function(){
+    this.g = {x:0,y:(0.0005)};
+    this.v.x=0; this.v.y=0.02*this.p.y/this.r;
+    this.setActive(true);
+    this.popped = true;
+}
+
+
+
+function TextSprite(x,y,vx,vy,text) {
+    this.time = 0;
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.text = text;
+    this.active = true;
+}
+
+TextSprite.prototype.delay = 1000;
+
+TextSprite.prototype.step = function(dt){
+console.log("steppint");
+    if(this.active){
+        this.time += dt;
+        this.x += this.vx*dt;
+        this.y += this.vy*dt;
+        if (this.time > this.delay)
+            this.active = false;
+    }
+}
+
+
+function PointsTextManager(){
+    this.texts = [];
+    this.addTextSprite = function(sprite){
+        this.texts.push(sprite);
+    };
+    this.clearInactive = function(){
+        this.texts = this.texts.filter(function(v){return (v.active)});    
+    };
+    this.step = function(dt){
+
+        for(var i = 0; i< this.texts.length;i++)
+            this.texts[i].step(dt);
+        this.clearInactive();
+    };
+}
+
+
+//function TextManager(){
+//    this.textGroups = [];
+//    this.textGroupIds = [];
+//}
+
+//TextManager.prototype.addTextGroup = function(id) {
+//    this.textGroupsIds.push(id);
+//}
+
+//TextManager.prototype.addText = function(groupid,text){
+//    var idx = -1;
+//    for (var i=0; i < this.textGroupIds.length;i++)
+//        if (this.textGroups[i] == groupid)
+//            idx = -1; break;
+//    if (idx >= 0){
+//        this.textGroups[idx].push(text);
+//    }
+//}
+
+
+
+
+var Renderer = (function(){
+
+    var drawBoard = function(dc,x,y,w,h){
+        dc.fillStyle = "rgb(20,20,250)";        
+        dc.fillRect(0,0,w,h);
     }
 
-    Bubble.prototype.fall = function(){
-        this.g = {x:0,y:(0.0005)};
-        this.v.x=0; this.v.y=0.02*this.p.y/this.r;
-        this.setActive(true);
-        this.popped = true;
-    }
+    var color = ["rgba(255,0,0,0.5)","green","blue","yellow","white"];
+    var bw = 25;
+    var bh = 25;
+    var greenBubble = document.createElement('canvas');
+    var redBubble = document.createElement('canvas');
+    var bubblesRenders = []; 
+    
 
-
-    var Renderer = (function(){
-
-        var drawBoard = function(dc,x,y,w,h){
-            dc.fillStyle = "rgb(20,20,250)";        
-            dc.fillRect(0,0,w,h);
+    var drawBubble = function(bubble,dc){
+        dc.beginPath();
+        dc.fillStyle = color[bubble.value];//bubble.color;
+        dc.lineWidth = 1.5;
+        dc.arc(0,0,bubble.r*0.95,0,360,false);
+        dc.fill();
+        dc.strokeStyle = "#000000";
+        dc.stroke();
+        dc.closePath();
+        dc.lineWidth = 1.0;
+        if(bubble.mark){
+            dc.strokeStyle = "#00FF00";
+            dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
         }
+        dc.strokeStyle = "#FF0000";
+        dc.strokeRect(0,0,1,1);
+    };
 
-        var color = ["rgba(255,0,0,0.5)","green","blue","yellow","white"];
-        var bw = 25;
-        var bh = 25;
-        var greenBubble = document.createElement('canvas');
-        var redBubble = document.createElement('canvas');
-        var bubblesRenders = []; 
-        
+    //prerender de bolas
+    modelBubble = new Bubble(0,0,bw/2);
+    
+    
+    for (var i = 0; i< color.length; i++){
+        var c = document.createElement('canvas');
+        c.widht = bw;
+        c.height = bh;
+        dc = c.getContext("2d");
+        modelBubble.value = i;
+        dc.save();
+        dc.translate(modelBubble.r,modelBubble.r);
+        drawBubble(modelBubble,dc);
+        dc.restore();
+        bubblesRenders.push(c);
+    }
+    
+    
+    return {
 
-        var drawBubble = function(bubble,dc){
-            dc.beginPath();
-            dc.fillStyle = color[bubble.value];//bubble.color;
-            dc.lineWidth = 1.5;
-            dc.arc(0,0,bubble.r*0.95,0,360,false);
-            dc.fill();
-            dc.strokeStyle = "#000000";
-            dc.stroke();
-            dc.closePath();
-            dc.lineWidth = 1.0;
-            if(bubble.mark){
-                dc.strokeStyle = "#00FF00";
-                dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
-            }
-            dc.strokeStyle = "#FF0000";
-            dc.strokeRect(0,0,1,1);
-        };
+        setTextFont:function(font,color){
+            dc.font = font;
+            dc.fillStyle = color;             
+        },
+        
+        drawText:function(text,x,y){
+            dc.fillText(text,x,y);
+        },
 
-        //prerender de bolas
-        modelBubble = new Bubble(0,0,bw/2);
-        
-        
-        for (var i = 0; i< color.length; i++){
-            var c = document.createElement('canvas');
-            c.widht = bw;
-            c.height = bh;
-            dc = c.getContext("2d");
-            modelBubble.value = i;
+        drawBubbleXY:function(bubble,dc,x,y){
             dc.save();
-            dc.translate(modelBubble.r,modelBubble.r);
-            drawBubble(modelBubble,dc);
+            dc.translate(x-bw/2,y-bh/2);
+            dc.drawImage(bubblesRenders[bubble.value],0,0);
             dc.restore();
-            bubblesRenders.push(c);
-        }
+        },
         
-        
-        return {
-            
-            drawText:function(text,x,y){
-                dc.font = "12px sans-serif";
-                dc.fillStyle = "rgb(0,0,0)";      
-                dc.fillText(text,x,y);
-            },
+        drawBoard:function(dc,x,y,w,h){
+            dc.fillStyle = "rgb(100,100,100)";        
+            dc.fillRect(0,0,w,h);
+            dc.strokeStyle = "rgb(0,0,0)";
+            dc.strokeRect(0,0,w,h);
+        },
         
 
-            drawBubbleXY:function(bubble,dc,x,y){
-                dc.save();
-                dc.translate(x-bw/2,y-bh/2);
-                dc.drawImage(bubblesRenders[bubble.value],0,0);
-                dc.restore();
-            },
+        drawWorld:function(world,dc){
+            Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
             
-            drawBoard:function(dc,x,y,w,h){
-                dc.fillStyle = "rgb(100,100,100)";        
-                dc.fillRect(0,0,w,h);
-                dc.strokeStyle = "rgb(0,0,0)";
-                dc.strokeRect(0,0,w,h);
-            },
-            
-
-            drawWorld:function(world,dc){
-                Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
-                
-                dc.strokeStyle = "#555555";
-                for(var i=0; i<world.bubblegrid.slots.length;i++)
-                    for(var j=0; j<world.bubblegrid.slots[i].length;j++){
-                        var pos = world.bubblegrid.getCoordForPos(i,j);
-                        dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
-                    }
-                var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
-                dc.save();
-                dc.translate(dx,0);
-                for (var i=0; i<world.bubbles.length;i++){
-                    var b = world.bubbles[i];
-                    Renderer.drawBubbleXY(b,dc,b.p.x ,b.p.y);
+            dc.strokeStyle = "#555555";
+            for(var i=0; i<world.bubblegrid.slots.length;i++)
+                for(var j=0; j<world.bubblegrid.slots[i].length;j++){
+                    var pos = world.bubblegrid.getCoordForPos(i,j);
+                    dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                 }
-                dc.restore();
-                var b = world.nextBubble;                
-                Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
-                
-                Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
-                Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
-                Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
-
+            var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
+            dc.save();
+            dc.translate(dx,0);
+            for (var i=0; i<world.bubbles.length;i++){
+                var b = world.bubbles[i];
+                if(b.isPopped()) {dc.save(); dc.translate(-dx,0)};
+                Renderer.drawBubbleXY(b,dc,b.p.x ,b.p.y);
+                if(b.isPopped()) dc.restore();
             }
-        
-        }
-
-    })();
-
-
-    function World(w,h){
-        this.w=w;
-        this.h=h;
-        this.g=-1;
-        this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw),this.bw,this.bh);
-        this.bubbles = [];
-        this.deadBubbles = [];
-        this.firedBubbles = [];
-        this.shots=0;
-        this.shotLimit=6;
-        
-    }
-    
-    World.prototype.bw = 25;
-    World.prototype.bh = 25;
-    
-    World.prototype.createNextBubble = function(){
-        var index = Math.floor(Math.random()*this.bubbles.length);
-        var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
-        if(this.bubbles.length>0)
-            b.value = this.bubbles[index].value;
-        return b;
-    }
-    
-    World.prototype.getNextBubble = function(){
-        var b = this.nextBubble;
-        this.nextBubble = this.createNextBubble();
-        return b;
-    }
-    
-    World.prototype.setup = function(){
-        var bubblesRows = 5;
-        var bubblesCols = Math.floor(this.w/this.bw);
-        for (var j = 0; j<bubblesRows; j++)
-            for (var i = 0; i<bubblesCols-(j - Math.floor(j/2)*2); i++){
-                var b = new Bubble( this.bw/2*(j - Math.floor(j/2)*2) + i*this.bw+this.bw/2,j*this.bh+this.bh/2,this.bw/2);
-                b.setActive(false);
-                b.v.y = i*0.01;
-                b.g = {x:0,y:0.0001};
-                this.bubblegrid.addBubble(b,j,i);
-                this.addBubble(b);
-            }
-        this.nextBubble = this.createNextBubble();
-    }
-
-    World.prototype.addBubble = function(b){
-        this.bubbles.push(b);
-    }
-
-    World.prototype.log = function(){
-        console.log("Tengo "+this.bubbles.length + " bubbles");
-    }
-
-    World.prototype.step = function(dt,frameTime){
-
-        this.dt = dt;
-        var t=0;
-        for(;t<=dt;t=t+frameTime){
-
-            //update de posicion de las burbujas
-            for(var i = 0; i<this.bubbles.length; i++){
-                var b = this.bubbles[i];
-                b.step(frameTime);
-
-                //chequeo por rebotes en paredes
-                if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
-                    b.v.x *=-1;
-                //chequeo por salidas del area de pantalla
-                if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
-                        this.deadBubbles.push(i);
-            }
+            dc.restore();
+            var b = world.nextBubble;                
+            Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
             
-            //si hay un disparo verifico fijacion
-            for(var i = 0; i<this.firedBubbles.length;i++){
-                  var b = this.firedBubbles[i];
-                
-                      var collides = false;
-                      for (var i = 0; i<this.bubbles.length;i++){
-                              var b2 = this.bubbles[i];
-                              if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) 
-                              {collides = true;break;}
-                      }
-                      if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
-                            var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
-                            //evito que se agrege a una celda no habilitada
-                            if (pos == null) { 
-                            pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y); console.log("bbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-                            }
-                            if (pos.j >= this.bubblegrid.slots[pos.i].length) { console.log( "aaaaaaaaaaaaaaaaaaaaa"); pos.j = pos.j-1};
-                            
-                            console.log("attach");
-                            this.bubblegrid.addBubble(b,pos.i,pos.j);
-                            this.bubblegrid.markBubble(pos.i,pos.j,b.value);
-                            console.log("se marcaron " + this.bubblegrid.marked.length);
-                            this.bubblegrid.popMarkedBubbles();
-                            this.bubblegrid.clearMarkedBubbles();
-                            this.bubblegrid.detachOrphanBubbles();
-                            this.firedBubbles.pop();
-                            this.moveGrid();
-                            
-                      }
-            }
-            
-            //quito las que no estan mas en pantallas;
-            if(this.deadBubbles.length>0){
-                for (var j = 0; j< this.deadBubbles.length;j++)
-                    this.bubbles[this.deadBubbles[j]] = null;
-                this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
-                this.deadBubbles.length = 0; 
-            }        
-            
-            w.bubblegrid.step(frameTime);
+            Renderer.setTextFont("12px sans-serif","rgb(0,0,0)");
+            Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
+            Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
+            Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
+            Renderer.drawText("Points: " + world.points,10,396);
+    
+            Renderer.setTextFont("15px italic arial,sans-serif strong","rgb(0,0,0)");
+            for (var i = 0; i< world.pointTexts.texts.length;i++)
+                Renderer.drawText(world.pointTexts.texts[i].text,world.pointTexts.texts[i].x,world.pointTexts.texts[i].y);
 
         }
-
+    
     }
-    
-    World.prototype.fireBubble = function(target){
-    
-        this.shots++;
-        if(this.firedBubbles.length==0){
-            var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
-            var b = this.getNextBubble();
-            var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
-            b.v.x = dir.x/norma *0.9;
-            b.v.y = dir.y/norma * 0.9;
+
+})();
+
+
+function World(w,h){
+    this.w=w;
+    this.h=h;
+    this.g=-1;
+    this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw),this.bw,this.bh);
+    this.bubbles = [];
+    this.deadBubbles = [];
+    this.firedBubbles = [];
+    this.shots=0;
+    this.shotLimit=6;
+    this.points = 0;
+    this.pointTexts = new PointsTextManager();
+    var world = this;
+    this.bubblegrid.setBubblePopUpCallback(function(b){
+        console.log("adding text");
+        world.pointTexts.addTextSprite(new TextSprite(b.p.x,b.p.y,0.02,-0.04,"10"));
+        console.log(world.pointTexts);
+        world.points += 10;
+        });
+}
+
+World.prototype.bw = 25;
+World.prototype.bh = 25;
+
+World.prototype.createNextBubble = function(){
+    var index = Math.floor(Math.random()*this.bubbles.length);
+    var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
+    if(this.bubbles.length>0)
+        b.value = this.bubbles[index].value;
+    return b;
+}
+
+World.prototype.getNextBubble = function(){
+    var b = this.nextBubble;
+    this.nextBubble = this.createNextBubble();
+    return b;
+}
+
+World.prototype.setup = function(){
+    var bubblesRows = 5;
+    var bubblesCols = Math.floor(this.w/this.bw);
+    for (var j = 0; j<bubblesRows; j++)
+        for (var i = 0; i<bubblesCols-(j - Math.floor(j/2)*2); i++){
+            var b = new Bubble( this.bw/2*(j - Math.floor(j/2)*2) + i*this.bw+this.bw/2,j*this.bh+this.bh/2,this.bw/2);
+            b.setActive(false);
+            b.v.y = i*0.01;
+            b.g = {x:0,y:0.0001};
+            this.bubblegrid.addBubble(b,j,i);
             this.addBubble(b);
-            this.firedBubbles.push(b);
         }
+    this.nextBubble = this.createNextBubble();
+}
+
+World.prototype.addBubble = function(b){
+    this.bubbles.push(b);
+}
+
+World.prototype.log = function(){
+    console.log("Tengo "+this.bubbles.length + " bubbles");
+}
+
+World.prototype.step = function(dt,frameTime){
+
+    for(var t=0;t<=dt;t=t+frameTime){
+
+        //update de posicion de las burbujas
+        for(var i = 0; i<this.bubbles.length; i++){
+            var b = this.bubbles[i];
+            b.step(frameTime);
+
+            //chequeo por rebotes en paredes
+            if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
+                b.v.x *=-1;
+            //chequeo por salidas del area de pantalla
+            if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
+                    this.deadBubbles.push(i);
+        }
+        
+        //si hay un disparo verifico fijacion
+        for(var i = 0; i<this.firedBubbles.length;i++){
+              var b = this.firedBubbles[i];
+            
+                  var collides = false;
+                  for (var i = 0; i<this.bubbles.length;i++){
+                          var b2 = this.bubbles[i];
+                          if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) 
+                          {collides = true;break;}
+                  }
+                  if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
+                        var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
+                        //evito que se agrege a una celda no habilitada
+                        if (pos == null) pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y);
+                        if (pos.j >= this.bubblegrid.slots[pos.i].length)  pos.j = pos.j-1;
+                        
+                        console.log("attach");
+                        this.bubblegrid.addBubble(b,pos.i,pos.j);
+                        this.bubblegrid.markBubble(pos.i,pos.j,b.value);
+                        console.log("se marcaron " + this.bubblegrid.marked.length);
+                        this.bubblegrid.popMarkedBubbles();
+                        this.bubblegrid.clearMarkedBubbles();
+                        this.bubblegrid.detachOrphanBubbles();
+                        this.firedBubbles.pop();
+                        this.moveGrid();
+                        
+                  }
+        }
+        
     }
     
-    World.prototype.moveGrid = function(){
-    
-        switch (this.shots){
-            case this.shotLimit:
-                this.bubblegrid.lowerGrid();
-                this.shots = 0;
-                break;
-            case this.shotLimit-1:
-                this.bubblegrid.shake(true);
-                break;
-            }
+    //quito las que no estan mas en pantallas;
+    if(this.deadBubbles.length>0){
+        for (var j = 0; j< this.deadBubbles.length;j++)
+            this.bubbles[this.deadBubbles[j]] = null;
+        this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
+        this.deadBubbles.length = 0; 
     }
+
+    w.bubblegrid.step(dt);
+    w.pointTexts.step(dt);
+
+}
+
+World.prototype.fireBubble = function(target){
+
+    this.shots++;
+    if(this.firedBubbles.length==0){
+        var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
+        var b = this.getNextBubble();
+        var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
+        b.v.x = dir.x/norma *0.9;
+        b.v.y = dir.y/norma * 0.9;
+        this.addBubble(b);
+        this.firedBubbles.push(b);
+    }
+}
+
+World.prototype.moveGrid = function(){
+
+    switch (this.shots){
+        case this.shotLimit:
+            this.bubblegrid.lowerGrid();
+            this.shots = 0;
+            break;
+        case this.shotLimit-1:
+            this.bubblegrid.shake(true);
+            break;
+        }
+}
 
 
 var init = function(){
@@ -769,3 +858,11 @@ var init = function(){
 
 
 window.onload = init;
+
+// TODOS
+/*
+    - organizar sprites en distintos "spriteGroups" para relizar renders en forma diferenciada
+    - agregar puntaje / tiempo
+    * agregar sprites tipo texto
+    - reescribir renderer para adaptarlo a viewport
+*/
