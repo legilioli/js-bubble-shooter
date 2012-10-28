@@ -98,8 +98,23 @@ function Grid(rows,cols,bw,bh){
     this.bubblePopUpCallback = null;
 }
 
+Grid.prototype.getBubblesValues = function(f){ //TODO: que devuevla solo los colores una vez
+    var colors = [];
+    for(var i=0; i<this.slots.length;i++)
+        for (var j=0; j<this.slots[0].length;j++)
+            if (this.slots[i][j])
+                if(colors.indexOf(this.slots[i][j].value)<0)
+                    colors.push(this.slots[i][j].value);
+            
+    return colors;
+}
+
 Grid.prototype.setBubblePopUpCallback = function(f){
     this.bubblePopUpCallback = f;
+}
+
+Grid.prototype.setBubbleFallCallback = function(f){
+    this.bubbleFallCallback = f;
 }
 
 Grid.prototype.states = {
@@ -218,7 +233,6 @@ Grid.prototype.addBubble = function(bubble,i,j){
         bubble.p.x = wpos.x+this.bw/2;
         bubble.p.y = wpos.y+this.bh/2;
         bubble.setActive(false);
-
     }
 };
 
@@ -329,7 +343,8 @@ Grid.prototype.detachOrphanBubbles = function(){
             if(b && this.slots[i][j].orphan){
                 this.removeBubble(i,j);
                 b.fall();
-            }            
+                this.bubbleFallCallback(b);
+            }
         }
 }
 
@@ -468,6 +483,19 @@ console.log("steppint");
     }
 }
 
+function EntityGroup(){
+    this.entities = [];
+}
+
+EntityGroup.prototype.step = function(dt){
+    for (var i=0; i<this.entities.length;i++)
+        this.entities[i].step(dt);
+}
+
+EntityGroup.prototype.addEntity = function(entity){
+    this.entities.push(entity);
+}
+
 
 function PointsTextManager(){
     this.texts = [];
@@ -602,17 +630,23 @@ var Renderer = (function(){
             var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
             dc.save();
             dc.translate(dx,0);
-            for (var i=0; i<world.bubbles.length;i++){
-                var b = world.bubbles[i];
-                if(b.isPopped()) {
-                    dc.save();
-                    dc.translate(-dx,0)
-                }
-                Renderer.drawBubbleXY(b,dc,b.p.x ,b.p.y);
-                if(b.isPopped()) 
-                    dc.restore();
-            }
+            for (var i=0; i< world.bubblegrid.slots.length; i++)
+                for (var j=0; j<world.bubblegrid.slots[0].length;j++)
+                    if (world.bubblegrid.slots[i][j] != null){
+                        var b = world.bubblegrid.slots[i][j];
+                        Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                    }
             dc.restore();
+            
+            //Dibujo burbujas libres
+            for (var i=0; i< world.bubbles.length;i++){
+                b = world.bubbles[i];
+                Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+            }
+            
+            //Dibujo la burbuja que se esta disparando
+            var b = world.firedBubbles[0];
+            if (b) Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
             
             //Dibujo la proxima burbuja a ser disparada
             var b = world.nextBubble;                
@@ -651,21 +685,26 @@ function World(w,h){
     this.pointTexts = new PointsTextManager();
     var world = this;
     this.bubblegrid.setBubblePopUpCallback(function(b){
+        world.bubbles.push(b);
         console.log("adding text");
         world.pointTexts.addTextSprite(new TextSprite(b.p.x,b.p.y,0.02,-0.04,"10"));
         console.log(world.pointTexts);
         world.points += 10;
         });
+    this.bubblegrid.setBubbleFallCallback(function(b){
+        world.bubbles.push(b);
+    });
 }
 
 World.prototype.bw = 25;
 World.prototype.bh = 25;
 
 World.prototype.createNextBubble = function(){
-    var index = Math.floor(Math.random()*this.bubbles.length);
     var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
-    if(this.bubbles.length>0)
-        b.value = this.bubbles[index].value;
+    var values = this.bubblegrid.getBubblesValues();
+    var index = Math.floor(Math.random()*values.length);
+    if(values.length>0)
+        b.value = values[index];
     return b;
 }
 
@@ -685,7 +724,6 @@ World.prototype.setup = function(){
             b.v.y = i*0.01;
             b.g = {x:0,y:0.0001};
             this.bubblegrid.addBubble(b,j,i);
-            this.addBubble(b);
         }
     this.nextBubble = this.createNextBubble();
 }
@@ -706,7 +744,6 @@ World.prototype.step = function(dt,frameTime){
         for(var i = 0; i<this.bubbles.length; i++){
             var b = this.bubbles[i];
             b.step(frameTime);
-
             //chequeo por rebotes en paredes
             if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
                 b.v.x *=-1;
@@ -715,16 +752,30 @@ World.prototype.step = function(dt,frameTime){
                     this.deadBubbles.push(i);
         }
         
+        //update de posicion de la burbuja disparada
+        if(this.firedBubbles.length >0){
+            var b = this.firedBubbles[0];
+            b.step(frameTime);
+            //chequeo por rebotes en paredes
+            if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
+                b.v.x *=-1;              
+        }
+                
         //si hay un disparo verifico fijacion
         for(var i = 0; i<this.firedBubbles.length;i++){
               var b = this.firedBubbles[i];
             
                   var collides = false;
-                  for (var i = 0; i<this.bubbles.length;i++){
-                          var b2 = this.bubbles[i];
-                          if((!b2.popped) && (b2!=b) && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)) 
-                          {collides = true;break;}
-                  }
+                  
+                  for (var i = 0; i < this.bubblegrid.slots.length; i++)
+                    for (var j = 0; j < this.bubblegrid.slots[0].length; j++){
+                        var b2 = this.bubblegrid.slots[i][j];
+                        if(b2 && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)){
+                            collides = true;
+                            break;
+                        }
+                    }
+                  
                   if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
                         var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
                         //evito que se agrege a una celda no habilitada
@@ -743,7 +794,7 @@ World.prototype.step = function(dt,frameTime){
                         
                   }
         }
-        
+
     }
     
     //quito las que no estan mas en pantallas;
@@ -756,7 +807,7 @@ World.prototype.step = function(dt,frameTime){
 
     w.bubblegrid.step(dt);
     w.pointTexts.step(dt);
-
+    
 }
 
 World.prototype.fireBubble = function(target){
@@ -767,7 +818,6 @@ World.prototype.fireBubble = function(target){
         var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
         b.v.x = dir.x/norma *0.9;
         b.v.y = dir.y/norma * 0.9;
-        this.addBubble(b);
         this.firedBubbles.push(b);
     }
 }
