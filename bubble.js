@@ -586,33 +586,46 @@ var Renderer = (function(){
         
 
         drawWorld:function(world,dc){
+        
+            //Dibujo el tablero
             Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
             
+            //Dibujo las lineas de la grilla de burbujas
             dc.strokeStyle = "#555555";
             for(var i=0; i<world.bubblegrid.slots.length;i++)
                 for(var j=0; j<world.bubblegrid.slots[i].length;j++){
                     var pos = world.bubblegrid.getCoordForPos(i,j);
                     dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                 }
+                
+            //Dibujo las burbujas de la grilla
             var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
             dc.save();
             dc.translate(dx,0);
             for (var i=0; i<world.bubbles.length;i++){
                 var b = world.bubbles[i];
-                if(b.isPopped()) {dc.save(); dc.translate(-dx,0)};
+                if(b.isPopped()) {
+                    dc.save();
+                    dc.translate(-dx,0)
+                }
                 Renderer.drawBubbleXY(b,dc,b.p.x ,b.p.y);
-                if(b.isPopped()) dc.restore();
+                if(b.isPopped()) 
+                    dc.restore();
             }
             dc.restore();
+            
+            //Dibujo la proxima burbuja a ser disparada
             var b = world.nextBubble;                
             Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
             
+            //Dibujo textos con puntajes y demás info
             Renderer.setTextFont("12px sans-serif","rgb(0,0,0)");
             Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
             Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
             Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
             Renderer.drawText("Points: " + world.points,10,396);
     
+            //Dibujo textos flotantes de los puntajes
             Renderer.setTextFont("15px italic arial,sans-serif strong","rgb(0,0,0)");
             for (var i = 0; i< world.pointTexts.texts.length;i++)
                 Renderer.drawText(world.pointTexts.texts[i].text,world.pointTexts.texts[i].x,world.pointTexts.texts[i].y);
@@ -747,7 +760,6 @@ World.prototype.step = function(dt,frameTime){
 }
 
 World.prototype.fireBubble = function(target){
-
     this.shots++;
     if(this.firedBubbles.length==0){
         var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
@@ -813,8 +825,6 @@ var init = function(){
        // w.addBubble(new Bubble(20,20,30));
     }
 
-        
-
     function gameLoop(oldtime){
         var date = new Date();
         var now = date.getTime();
@@ -861,8 +871,14 @@ window.onload = init;
 
 // TODOS
 /*
-    - organizar sprites en distintos "spriteGroups" para relizar renders en forma diferenciada
+    - organizar todas las entidades que pueden ser steppeadas en una lista de entidades (lo que seria ahora world.bubbles)
+    - organizar sprites de burbujas en distintos "spriteGroups" para relizar renders en forma diferenciada
+        - uno para los del grid
+        - uno para los popped
+        - otro para el fired
     - agregar puntaje / tiempo
     * agregar sprites tipo texto
     - reescribir renderer para adaptarlo a viewport
+    
+
 */
