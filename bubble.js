@@ -877,8 +877,7 @@ var init = function(){
     function gameLoop(oldtime){
     
         // calculate deltat
-        var date = new Date();
-        var now = date.getTime();
+        var now = (new Date()).getTime();
         var dt = now - oldtime ;        
         
         // process input
