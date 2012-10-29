@@ -98,7 +98,7 @@ function Grid(rows,cols,bw,bh){
     this.bubblePopUpCallback = null;
 }
 
-Grid.prototype.getBubblesValues = function(f){ //TODO: que devuevla solo los colores una vez
+Grid.prototype.getBubblesValues = function(f){
     var colors = [];
     for(var i=0; i<this.slots.length;i++)
         for (var j=0; j<this.slots[0].length;j++)
@@ -739,64 +739,39 @@ World.prototype.log = function(){
 World.prototype.step = function(dt,frameTime){
 
     for(var t=0;t<=dt;t=t+frameTime){
-
-        //update de posicion de las burbujas
-        for(var i = 0; i<this.bubbles.length; i++){
-            var b = this.bubbles[i];
-            b.step(frameTime);
-            //chequeo por rebotes en paredes
-            if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
-                b.v.x *=-1;
-            //chequeo por salidas del area de pantalla
-            if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
-                    this.deadBubbles.push(i);
-        }
-        
-        //update de posicion de la burbuja disparada
-        if(this.firedBubbles.length >0){
-            var b = this.firedBubbles[0];
-            b.step(frameTime);
-            //chequeo por rebotes en paredes
-            if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
-                b.v.x *=-1;              
-        }
-                
-        //si hay un disparo verifico fijacion
-        for(var i = 0; i<this.firedBubbles.length;i++){
-              var b = this.firedBubbles[i];
-            
-                  var collides = false;
-                  
-                  for (var i = 0; i < this.bubblegrid.slots.length; i++)
-                    for (var j = 0; j < this.bubblegrid.slots[0].length; j++){
-                        var b2 = this.bubblegrid.slots[i][j];
-                        if(b2 && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)){
-                            collides = true;
-                            break;
-                        }
-                    }
-                  
-                  if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
-                        var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
-                        //evito que se agrege a una celda no habilitada
-                        if (pos == null) pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y);
-                        if (pos.j >= this.bubblegrid.slots[pos.i].length)  pos.j = pos.j-1;
-                        
-                        console.log("attach");
-                        this.bubblegrid.addBubble(b,pos.i,pos.j);
-                        this.bubblegrid.markBubble(pos.i,pos.j,b.value);
-                        console.log("se marcaron " + this.bubblegrid.marked.length);
-                        this.bubblegrid.popMarkedBubbles();
-                        this.bubblegrid.clearMarkedBubbles();
-                        this.bubblegrid.detachOrphanBubbles();
-                        this.firedBubbles.pop();
-                        this.moveGrid();
-                        
-                  }
-        }
-
+        this.stepFiredBubbles(frameTime);
+        this.testCollision();                
     }
     
+    this.bubblegrid.step(dt);
+    this.stepFreeBubbles(dt);
+    this.pointTexts.step(dt);
+
+}
+
+World.prototype.stepFiredBubbles = function(dt){
+    //update de posicion de la burbuja disparada
+    if(this.firedBubbles.length >0){
+        var b = this.firedBubbles[0];
+        b.step(dt);
+        //chequeo por rebotes en paredes
+        if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
+            b.v.x *=-1;              
+    }
+}
+
+World.prototype.stepFreeBubbles = function(dt){
+    //update de posicion de las burbujas
+    for(var i = 0; i<this.bubbles.length; i++){
+        var b = this.bubbles[i];
+        b.step(dt);
+        //chequeo por rebotes en paredes
+        if((b.p.x + b.v.x) <= this.bw/2 || (b.p.x + b.v.x) >= (this.w-this.bw/2))
+            b.v.x *=-1;
+        //chequeo por salidas del area de pantalla
+        if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
+            this.deadBubbles.push(i);
+    }    
     //quito las que no estan mas en pantallas;
     if(this.deadBubbles.length>0){
         for (var j = 0; j< this.deadBubbles.length;j++)
@@ -804,10 +779,42 @@ World.prototype.step = function(dt,frameTime){
         this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
         this.deadBubbles.length = 0; 
     }
+}
 
-    w.bubblegrid.step(dt);
-    w.pointTexts.step(dt);
-    
+World.prototype.testCollision = function(){
+    //si hay un disparo verifico fijacion
+    for(var i = 0; i<this.firedBubbles.length;i++){
+          var b = this.firedBubbles[i];
+        
+          var collides = false;
+          
+          for (var i = 0; i < this.bubblegrid.slots.length; i++)
+            for (var j = 0; j < this.bubblegrid.slots[0].length; j++){
+                var b2 = this.bubblegrid.slots[i][j];
+                if(b2 && circlesColliding(b.p.x,b.p.y,b.r,b2.p.x,b2.p.y,b2.r)){
+                    collides = true;
+                    break;
+                }
+            }
+          
+          if(collides||(b.p.y<this.bh+this.bubblegrid.baseY)){
+                var pos = this.bubblegrid.getCellIndexForCoord(b.p.x,b.p.y);
+                //evito que se agrege a una celda no habilitada
+                if (pos == null) pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y);
+                if (pos.j >= this.bubblegrid.slots[pos.i].length)  pos.j = pos.j-1;
+                
+                console.log("attach");
+                this.bubblegrid.addBubble(b,pos.i,pos.j);
+                this.bubblegrid.markBubble(pos.i,pos.j,b.value);
+                console.log("se marcaron " + this.bubblegrid.marked.length);
+                this.bubblegrid.popMarkedBubbles();
+                this.bubblegrid.clearMarkedBubbles();
+                this.bubblegrid.detachOrphanBubbles();
+                this.firedBubbles.pop();
+                this.moveGrid();
+                
+          }
+    }
 }
 
 World.prototype.fireBubble = function(target){
@@ -891,6 +898,7 @@ var init = function(){
                 if(b) {
                     console.log("popping " +p.i, "," +p.j  );
                     b.pop();
+                    w.bubbles.push(b);
                     w.bubblegrid.removeBubble(p.i,p.j);
                 }   
             }
