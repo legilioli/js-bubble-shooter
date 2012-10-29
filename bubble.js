@@ -483,18 +483,18 @@ console.log("steppint");
     }
 }
 
-function EntityGroup(){
-    this.entities = [];
-}
+//function EntityGroup(){
+//    this.entities = [];
+//}
 
-EntityGroup.prototype.step = function(dt){
-    for (var i=0; i<this.entities.length;i++)
-        this.entities[i].step(dt);
-}
+//EntityGroup.prototype.step = function(dt){
+//    for (var i=0; i<this.entities.length;i++)
+//        this.entities[i].step(dt);
+//}
 
-EntityGroup.prototype.addEntity = function(entity){
-    this.entities.push(entity);
-}
+//EntityGroup.prototype.addEntity = function(entity){
+//    this.entities.push(entity);
+//}
 
 
 function PointsTextManager(){
@@ -728,10 +728,6 @@ World.prototype.addBubble = function(b){
     this.bubbles.push(b);
 }
 
-World.prototype.log = function(){
-    console.log("Tengo "+this.bubbles.length + " bubbles");
-}
-
 World.prototype.step = function(dt,frameTime){
 
     for(var t=0;t<=dt;t=t+frameTime){
@@ -808,7 +804,6 @@ World.prototype.testCollision = function(){
                 this.bubblegrid.detachOrphanBubbles();
                 this.firedBubbles.pop();
                 this.moveGrid();
-                
           }
     }
 }
