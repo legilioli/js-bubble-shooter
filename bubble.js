@@ -533,9 +533,6 @@ function PointsTextManager(){
 //    }
 //}
 
-
-
-
 var Renderer = (function(){
 
     var drawBoard = function(dc,x,y,w,h){
@@ -612,7 +609,6 @@ var Renderer = (function(){
             dc.strokeRect(0,0,w,h);
         },
         
-
         drawWorld:function(world,dc){
         
             //Dibujo el tablero
@@ -818,8 +814,8 @@ World.prototype.testCollision = function(){
 }
 
 World.prototype.fireBubble = function(target){
-    this.shots++;
     if(this.firedBubbles.length==0){
+        this.shots++;
         var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
         var b = this.getNextBubble();
         var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
@@ -861,6 +857,8 @@ var init = function(){
         return {x:pos.x,y:pos.y};
     }
 
+    var mouseclick = false;
+    var mousepos = null;
 
     var c = document.getElementById("c");
     
@@ -871,56 +869,38 @@ var init = function(){
     }
     
     dc = c.getContext("2d");
+
+    // create world
     w = new World(c.width,c.height);
     w.setup();
-    
-    var mouseclick = false;
-    var mousepos = null;
-    
-    var button = document.getElementById("button_new");
-    button.onclick = function(){
-       // w.addBubble(new Bubble(20,20,30));
-    }
-
+        
     function gameLoop(oldtime){
+    
+        // calculate deltat
         var date = new Date();
         var now = date.getTime();
-        var dt = date.getTime() - oldtime ;        
+        var dt = now - oldtime ;        
         
-        //process input
+        // process input
         if(mouseclick){
             var wpos = screen2World(mousepos,w);
             w.fireBubble(wpos);
-            var p = w.bubblegrid.getCellIndexForCoord(wpos.x,wpos.y,w);
-            console.log("pos: "+wpos.x+","+wpos.y);
-            if (p){
-            var b = w.bubblegrid.getBubbleAt(p.i,p.j);
-                if(b) {
-                    console.log("popping " +p.i, "," +p.j  );
-                    b.pop();
-                    w.bubbles.push(b);
-                    w.bubblegrid.removeBubble(p.i,p.j);
-                }   
-            }
             mouseclick = false;
         }
 
-        //stepgame
+        // step world
         w.step(dt,1000/180/*iteration time*/);
+        FPSCounter.frame();
 
         // draw
-        FPSCounter.frame();
-        dc.fillStyle="#FFFFFF";
-        dc.fillRect(0,0,c.width,c.height);
-        dc.save();
-        dc.translate(c.width/2 -w.w/2 ,0);
         Renderer.drawWorld(w,dc);
-        dc.restore();
+
+        // request next frame
         requestAnimationFrame(function(){gameLoop(now)},c);
     }
 
-    var date = new Date();
-    gameLoop(date.getTime());
+    // start loop
+    gameLoop((new Date()).getTime());
 
 }
 
@@ -930,10 +910,10 @@ window.onload = init;
 // TODOS
 /*
     - organizar todas las entidades que pueden ser steppeadas en una lista de entidades (lo que seria ahora world.bubbles)
-    - organizar sprites de burbujas en distintos "spriteGroups" para relizar renders en forma diferenciada
-        - uno para los del grid
-        - uno para los popped
-        - otro para el fired
+    * organizar sprites de burbujas en distintos "spriteGroups" para relizar renders en forma diferenciada
+        * uno para los del grid
+        * uno para los popped
+        * otro para el fired
     - agregar puntaje / tiempo
     * agregar sprites tipo texto
     - reescribir renderer para adaptarlo a viewport
