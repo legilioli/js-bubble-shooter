@@ -290,6 +290,17 @@ Grid.prototype.popMarkedBubbles = function(){
         }
 }
 
+Grid.prototype.popAllBubbles = function(){
+    console.log("popping all bubbles");
+    for(var i = 0; i < this.slots.length; i++)
+        for (var j = 0; j < this.slots[0].length; j++)
+            if(this.slots[i][j]){
+                this.slots[i][j].pop();
+                this.bubbleFallCallback(this.slots[i][j]);
+                this.removeBubble(i,j);
+            }
+}
+
 Grid.prototype.clearMarkedBubbles = function(){
     for(var i = 0; i<this.marked.length;i++){
         var p = this.marked[i];
@@ -473,7 +484,6 @@ function TextSprite(x,y,vx,vy,text) {
 TextSprite.prototype.delay = 1000;
 
 TextSprite.prototype.step = function(dt){
-console.log("steppint");
     if(this.active){
         this.time += dt;
         this.x += this.vx*dt;
@@ -506,32 +516,54 @@ function PointsTextManager(){
         this.texts = this.texts.filter(function(v){return (v.active)});    
     };
     this.step = function(dt){
-
-        for(var i = 0; i< this.texts.length;i++)
-            this.texts[i].step(dt);
-        this.clearInactive();
+        if(this.texts.length>0){
+            for(var i = 0; i< this.texts.length;i++)
+                this.texts[i].step(dt);
+            this.clearInactive();
+        }
     };
 }
 
 
-//function TextManager(){
-//    this.textGroups = [];
-//    this.textGroupIds = [];
-//}
+function Alarm(dt,callback){
+    this.dt = dt;
+    this.elapsed = 0;
+    this.running = false;
+    this.callback = callback;
+}
 
-//TextManager.prototype.addTextGroup = function(id) {
-//    this.textGroupsIds.push(id);
-//}
+Alarm.prototype.start = function(){
+    this.running = true;
+};
 
-//TextManager.prototype.addText = function(groupid,text){
-//    var idx = -1;
-//    for (var i=0; i < this.textGroupIds.length;i++)
-//        if (this.textGroups[i] == groupid)
-//            idx = -1; break;
-//    if (idx >= 0){
-//        this.textGroups[idx].push(text);
-//    }
-//}
+Alarm.prototype.step = function(dt){
+    if(this.running){
+        this.elapsed+=dt;
+        if(this.elapsed >= this.dt) { 
+            this.callback();
+            this.pause();
+        }
+    }
+}
+
+Alarm.prototype.pause = function(){
+    if (this.running) this.running = false;
+}
+
+Alarm.prototype.resume = function(){
+    this.running = true;
+}
+
+Alarm.prototype.reset = function(){
+    this.running = false;
+    this.elapsed = 0;
+}
+
+Alarm.prototype.getRemaining = function(){
+    return  (this.dt-this.elapsed)<=0?0:this.dt-this.elapsed;
+}
+
+
 
 var Renderer = (function(){
 
@@ -654,6 +686,7 @@ var Renderer = (function(){
             Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
             Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
             Renderer.drawText("Points: " + world.points,10,396);
+            Renderer.drawText("Time: " + Math.floor(world.endGameAlarm.getRemaining()/1000),10,350);
     
             //Dibujo textos flotantes de los puntajes
             Renderer.setTextFont("15px italic arial,sans-serif strong","rgb(0,0,0)");
@@ -679,12 +712,13 @@ function World(w,h){
     this.shotLimit=6;
     this.points = 0;
     this.pointTexts = new PointsTextManager();
+//    this.gameTexts = new 
     var world = this;
     this.bubblegrid.setBubblePopUpCallback(function(b){
         world.bubbles.push(b);
-        console.log("adding text");
+        //console.log("adding text");
         world.pointTexts.addTextSprite(new TextSprite(b.p.x,b.p.y,0.02,-0.04,"10"));
-        console.log(world.pointTexts);
+        //console.log(world.pointTexts);
         world.points += 10;
         });
     this.bubblegrid.setBubbleFallCallback(function(b){
@@ -694,6 +728,12 @@ function World(w,h){
 
 World.prototype.bw = 25;
 World.prototype.bh = 25;
+
+World.prototype.states = {
+    GAME_OVER:0,
+    PAUSED:1,
+    STARTING:2,
+};
 
 World.prototype.createNextBubble = function(){
     var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
@@ -722,6 +762,12 @@ World.prototype.setup = function(){
             this.bubblegrid.addBubble(b,j,i);
         }
     this.nextBubble = this.createNextBubble();
+    var grid = this.bubblegrid;
+    this.endGameCallback = function(){
+        grid.popAllBubbles();
+    }
+    this.endGameAlarm = new Alarm(60000,this.endGameCallback);
+    this.endGameAlarm.start();
 }
 
 World.prototype.addBubble = function(b){
@@ -738,6 +784,7 @@ World.prototype.step = function(dt,frameTime){
     this.bubblegrid.step(dt);
     this.stepFreeBubbles(dt);
     this.pointTexts.step(dt);
+    this.endGameAlarm.step(dt);
 
 }
 
