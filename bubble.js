@@ -469,8 +469,6 @@ Bubble.prototype.fall = function(){
     this.popped = true;
 }
 
-
-
 function TextSprite(x,y,vx,vy,text) {
     this.time = 0;
     this.x = x;
@@ -492,19 +490,6 @@ TextSprite.prototype.step = function(dt){
             this.active = false;
     }
 }
-
-//function EntityGroup(){
-//    this.entities = [];
-//}
-
-//EntityGroup.prototype.step = function(dt){
-//    for (var i=0; i<this.entities.length;i++)
-//        this.entities[i].step(dt);
-//}
-
-//EntityGroup.prototype.addEntity = function(entity){
-//    this.entities.push(entity);
-//}
 
 
 function PointsTextManager(){
@@ -635,7 +620,7 @@ var Renderer = (function(){
         },
         
         drawBoard:function(dc,x,y,w,h){
-            dc.fillStyle = "rgb(100,100,100)";        
+            dc.fillStyle = "rgb(100,100,100)";
             dc.fillRect(0,0,w,h);
             dc.strokeStyle = "rgb(0,0,0)";
             dc.strokeRect(0,0,w,h);
@@ -683,7 +668,7 @@ var Renderer = (function(){
             //Dibujo textos con puntajes y demás info
             Renderer.setTextFont("12px sans-serif","rgb(0,0,0)");
             Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
-            Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
+//            Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
             Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
             Renderer.drawText("Points: " + world.points,10,396);
             Renderer.drawText("Time: " + Math.floor(world.endGameAlarm.getRemaining()/1000),10,350);
@@ -704,6 +689,7 @@ function World(w,h){
     this.w=w;
     this.h=h;
     this.g=-1;
+    this.quantum = 1000/90
     this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw),this.bw,this.bh);
     this.bubbles = [];
     this.deadBubbles = [];
@@ -768,14 +754,17 @@ World.prototype.setup = function(){
     }
     this.endGameAlarm = new Alarm(60000,this.endGameCallback);
     this.endGameAlarm.start();
+    this.quantum = 1000/180;
 }
 
 World.prototype.addBubble = function(b){
     this.bubbles.push(b);
 }
 
-World.prototype.step = function(dt,frameTime){
+World.prototype.step = function(dt){
 
+    frameTime = this.quantum;
+    
     for(var t=0;t<=dt;t=t+frameTime){
         this.stepFiredBubbles(frameTime);
         this.testCollision();                
@@ -895,9 +884,6 @@ var init = function(){
                 }
     })();
 
-    function screen2World(pos,world){
-        return {x:pos.x,y:pos.y};
-    }
 
     var mouseclick = false;
     var mousepos = null;
@@ -907,7 +893,6 @@ var init = function(){
     c.onclick = function(evt){
         mousepos = c.relMouseCoords(evt);
         mouseclick = true;
-        console.log("click: " + mousepos.x + "," + mousepos.y);
     }
     
     dc = c.getContext("2d");
@@ -924,13 +909,13 @@ var init = function(){
         
         // process input
         if(mouseclick){
-            var wpos = screen2World(mousepos,w);
+            var wpos = {x:mousepos.x,y:mousepos.y};
             w.fireBubble(wpos);
             mouseclick = false;
         }
 
         // step world
-        w.step(dt,1000/180/*iteration time*/);
+        w.step(dt);
         FPSCounter.frame();
 
         // draw
@@ -950,14 +935,7 @@ window.onload = init;
 
 // TODOS
 /*
+    - evento game over
     - organizar todas las entidades que pueden ser steppeadas en una lista de entidades (lo que seria ahora world.bubbles)
-    * organizar sprites de burbujas en distintos "spriteGroups" para relizar renders en forma diferenciada
-        * uno para los del grid
-        * uno para los popped
-        * otro para el fired
-    - agregar puntaje / tiempo
-    * agregar sprites tipo texto
-    - reescribir renderer para adaptarlo a viewport
-    
-
+    - reescribir renderer para adaptarlo a viewport 
 */
