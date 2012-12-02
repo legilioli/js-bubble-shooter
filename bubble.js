@@ -889,14 +889,16 @@ var init = function(){
     var mousepos = null;
 
     var c = document.getElementById("c");
-    
-    c.onclick = function(evt){
+    var c2 = document.getElementById("c2");
+        
+    c2.onclick = function(evt){
         mousepos = c.relMouseCoords(evt);
         mouseclick = true;
     }
     
     dc = c.getContext("2d");
-
+    dc2 = c2.getContext("2d");
+    
     // create world
     w = new World(c.width,c.height);
     w.setup();

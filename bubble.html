@@ -4,11 +4,30 @@
 <meta charset="utf-8"/>
 <title>Bubbles</title>
 <script src="bubble.js"></script>
+ <style type="text/css">
+    #container {
+        position:relative;
+        margin-left:auto;
+        margin-right:auto;
+        width:450px;
+    }
 
+    canvas {
+        position:absolute;
+        top:0px;
+        left:0px;
+        border:1px solid;
+    }
+    
+ </style>
 </head>
 <body>
 <h1 style="text-align:center;">Bubbles</h1>
-<canvas id="c" height="400" width="450" style="display:block;border:1px solid;margin-left:auto; margin-right:auto"></canvas>
+<div id="container">
+    <canvas id="c" width="450" height="400" style="width:450; height:400;"></canvas>
+    <canvas id="c2" width="450" height="400" style="width:450; height:400;"></canvas>
+
+</div>
 <!--
 <textarea cols="100" rows="23" id="console" disabled="disabled" style="background:#000000; color:#00FF00"></textarea>
 -->
