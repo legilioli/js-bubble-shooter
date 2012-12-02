@@ -626,7 +626,7 @@ var Renderer = (function(){
             dc.strokeRect(0,0,w,h);
         },
         
-        drawWorld:function(world,dc){
+        drawWorld:function(world,dc,dc2){
         
             //Dibujo el tablero
             Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
@@ -678,6 +678,13 @@ var Renderer = (function(){
             for (var i = 0; i< world.pointTexts.texts.length;i++)
                 Renderer.drawText(world.pointTexts.texts[i].text,world.pointTexts.texts[i].x,world.pointTexts.texts[i].y);
 
+            //Si esta en pausa dibujo mensaje de pausa
+            dc2.clearRect(0,0,world.w,world.h);
+            if (world.state == World.states.PAUSED){
+                dc2.fillStyle = "rgba(0,0,0,0.5)";
+                dc2.fillRect(0,0,world.w,world.h);
+            }
+
         }
     
     }
@@ -715,11 +722,23 @@ function World(w,h){
 World.prototype.bw = 25;
 World.prototype.bh = 25;
 
-World.prototype.states = {
+World.states = {
     GAME_OVER:0,
     PAUSED:1,
     STARTING:2,
+    RUNNING:3,
 };
+
+World.prototype.pause = function(){
+    switch(this.state) {
+        case World.states.RUNNING:
+            this.state = World.states.PAUSED;
+            break;
+        case World.states.PAUSED:
+            this.state = World.states.RUNNING;
+            break;    
+    }
+}
 
 World.prototype.createNextBubble = function(){
     var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
@@ -755,6 +774,7 @@ World.prototype.setup = function(){
     this.endGameAlarm = new Alarm(60000,this.endGameCallback);
     this.endGameAlarm.start();
     this.quantum = 1000/180;
+    this.state = World.states.RUNNING;
 }
 
 World.prototype.addBubble = function(b){
@@ -765,16 +785,19 @@ World.prototype.step = function(dt){
 
     frameTime = this.quantum;
     
-    for(var t=0;t<=dt;t=t+frameTime){
-        this.stepFiredBubbles(frameTime);
-        this.testCollision();                
+    if (this.state == World.states.RUNNING) {
+
+        for(var t=0;t<=dt;t=t+frameTime){
+            this.stepFiredBubbles(frameTime);
+            this.testCollision();                
+        }
+           
+        this.bubblegrid.step(dt);
+        this.stepFreeBubbles(dt);
+        this.pointTexts.step(dt);
+        this.endGameAlarm.step(dt);
     }
     
-    this.bubblegrid.step(dt);
-    this.stepFreeBubbles(dt);
-    this.pointTexts.step(dt);
-    this.endGameAlarm.step(dt);
-
 }
 
 World.prototype.stepFiredBubbles = function(dt){
@@ -902,6 +925,31 @@ var init = function(){
     // create world
     w = new World(c.width,c.height);
     w.setup();
+  
+    // teclas
+    function KeyDown(evt) {
+        switch (evt.keyCode) {
+	        case 13:
+	        console.log("asfasfdfa");
+                w.pause();
+	        case 82:
+		        /* 'r' was pressed */
+	        case 38:
+		        /* Up arrow was pressed */
+                   break;
+	        case 40:
+		        /* Down arrow was pressed */
+		        break;
+	        case 37:
+		        /* Left arrow was pressed */
+		        break;
+	        case 39:
+		        /* Right arrow was pressed */
+        }
+    }
+
+    window.addEventListener('keydown', KeyDown, true);
+
         
     function gameLoop(oldtime){
     
@@ -911,8 +959,10 @@ var init = function(){
         
         // process input
         if(mouseclick){
-            var wpos = {x:mousepos.x,y:mousepos.y};
-            w.fireBubble(wpos);
+            if (w.state == World.states.RUNNING){
+                var wpos = {x:mousepos.x,y:mousepos.y};
+                w.fireBubble(wpos);
+            }
             mouseclick = false;
         }
 
@@ -921,7 +971,7 @@ var init = function(){
         FPSCounter.frame();
 
         // draw
-        Renderer.drawWorld(w,dc);
+        Renderer.drawWorld(w,dc,dc2);
 
         // request next frame
         requestAnimationFrame(function(){gameLoop(now)},c);
