@@ -18,6 +18,42 @@
         left:0px;
         border:1px solid;
     }
+
+    
+    
+    #menu-items {
+        position:absolute;
+        top:100px;
+        left:100px;
+        width:200px;
+        padding:0px;
+        margin:0px;
+        list-style-type: none;
+        background-color:rgba(0,0,128,0.6);
+        border-radius: 8px;
+    }
+
+ 
+    #menu-items li{
+        display:block;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        background-color:rgba(0,0,180,0.7);
+        font-family: sans-serif;
+        color: #FFF;
+        width:86%;
+        margin-left:7%;
+        height:50px;
+        line-height:50px;
+        text-align:center;
+        border:1px solid #00F;
+        border-radius: 8px;
+    }
+    
+    #menu-items li:hover{
+        background-color:rgba(0,0,128,1);        
+    }
+
     
  </style>
 </head>
@@ -26,7 +62,16 @@
 <div id="container">
     <canvas id="c" width="450" height="400" style="width:450; height:400;"></canvas>
     <canvas id="c2" width="450" height="400" style="width:450; height:400;"></canvas>
+<!--    <div id="menu" style="position:absolute; top:100px; left:100px; background-color:rgba(0,0,255,0.3);width:200px;height:200px">
+-->    <ul id="menu-items">
+        <li>Restart</li>
+        <li>Resume</li>
+        <li>About</li>
+        <li>Restart</li>
 
+    </ul>
+    
+<!--    </div>-->
 </div>
 <!--
 <textarea cols="100" rows="23" id="console" disabled="disabled" style="background:#000000; color:#00FF00"></textarea>
