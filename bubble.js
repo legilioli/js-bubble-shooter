@@ -908,30 +908,64 @@ var init = function(){
     })();
 
 
-    var mouseclick = false;
-    var mousepos = null;
 
     var c = document.getElementById("c");
     var c2 = document.getElementById("c2");
-        
+            
+    dc = c.getContext("2d");
+    dc2 = c2.getContext("2d");
+      
+    // menu
+    var menuElement = document.getElementById("menu-items");
+
+    var position_menu = function() {
+        var wm = (c.width/2 - menuElement.offsetWidth/2);
+        var hm = (c.height/2 - menuElement.offsetHeight/2);
+        menuElement.style.top = hm + "px";
+        menuElement.style.left = wm + "px";
+        menuElement.style.display = "none";
+    }
+  
+    // acciones
+    var pause_resume = function(){
+        w.pause();
+        if(w.state == World.states.PAUSED){
+            menuElement.style.display = "block";
+        } else {
+            menuElement.style.display = "none";
+        }    
+    }
+    
+    var restart_game = function(){
+        position_menu();
+        w = new World(c.width,c.height);
+        w.setup();
+    }
+    
+    var menuitem = document.getElementById("action_restart");
+    menuitem.onclick = restart_game;
+
+    var menuitem = document.getElementById("action_resume");
+    menuitem.onclick = pause_resume;
+
+
+    // mouse input
+
+    var mouseclick = false;
+    var mousepos = null;
+
     c2.onclick = function(evt){
         mousepos = c.relMouseCoords(evt);
         mouseclick = true;
     }
-    
-    dc = c.getContext("2d");
-    dc2 = c2.getContext("2d");
-    
-    // create world
-    w = new World(c.width,c.height);
-    w.setup();
-  
-    // teclas
+
+
+    // keyboard input
     function KeyDown(evt) {
         switch (evt.keyCode) {
+
 	        case 13:
-	        console.log("asfasfdfa");
-                w.pause();
+                pause_resume();            
 	        case 82:
 		        /* 'r' was pressed */
 	        case 38:
@@ -947,9 +981,12 @@ var init = function(){
 		        /* Right arrow was pressed */
         }
     }
+    
 
     window.addEventListener('keydown', KeyDown, true);
 
+    // create world
+    restart_game();
         
     function gameLoop(oldtime){
     
