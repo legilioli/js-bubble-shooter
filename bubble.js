@@ -568,7 +568,9 @@ var Renderer3D = (function(){
     var boardModel = null
     var bubbleGeometry = null;   
     var bubbleMaterials = null;
-    var bubbleGridModel = null; 
+    var bubbleGridModel = null;
+    
+    var stats = null;
     
 
     var initMaterials = function(){
@@ -706,9 +708,14 @@ var Renderer3D = (function(){
             initBoardModel();
             initBubblesModels();
 
+            // estadisticas (FPS counter)
+            stats = new Stats();
+            document.body.appendChild( stats.domElement );
+
         },
         
         drawWorld:function(w){
+            stats.update();
             updateModelsProperties();
             renderer.render(scene, camera);
         },
