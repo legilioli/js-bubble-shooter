@@ -549,13 +549,174 @@ Alarm.prototype.getRemaining = function(){
 }
 
 
+/* Renderer Functions to be Implemented:
+*/
+
+var Renderer3D = (function(){
+
+    var dc = null;
+    var scene = null;
+    var camera = null;
+    var renderer = null;  
+    var world = null;
+    
+    var boardColor = 0x646464;
+    
+    var nextBubbleColor = 0xFF0000;
+
+    var nextBubbleModel = null;
+    var boardModel = null
+    var bubbleGeometry = null;   
+    var bubbleMaterials = null;
+    var bubbleGridModel = null; 
+    
+
+    var initMaterials = function(){
+        bubbleMaterials = {
+            red:new THREE.MeshBasicMaterial({ color: 0xFF0000 }),
+            blue:new THREE.MeshBasicMaterial({ color: 0x0000FF }),
+            white:new THREE.MeshBasicMaterial({ color: 0xFFFFFF }),
+            yellow:new THREE.MeshBasicMaterial({ color: 0xFFFF00 }),         
+            green:new THREE.MeshBasicMaterial({ color: 0x00FF00 })
+        }
+        //console.log(bubbleMaterials);
+    }
+    
+    var initGeometries = function (){
+        bubbleGeometry = new THREE.CircleGeometry(world.bw/2,4);
+//        bubbleGeometry = new THREE.SphereGeometry(world.bw/2,8,8);
+    }
+    
+    var initBoardModel = function(){
+		var geometry = new THREE.PlaneGeometry(world.w,world.h);
+	    var material = new THREE.MeshBasicMaterial( { color: boardColor } );
+	    boardModel = new THREE.Mesh( geometry, material );
+		scene.add( boardModel );
+		boardModel.position.x = world.w/2;
+		boardModel.position.y = -world.h/2;
+    }
+    
+    
+    var createBubbleModel = function(bubble){
+        // returns a bubble Model for the scene graph
+        var material = null;
+        switch (bubble.value){
+            case 0:
+                material = bubbleMaterials.red;
+                break;
+            case 1:
+                material = bubbleMaterials.green;
+                break;
+            case 2:
+                material = bubbleMaterials.blue;
+                break;
+            case 3:
+                material = bubbleMaterials.yellow;
+                break;
+            default:
+                material = bubbleMaterials.white;
+                break;
+        }
+        
+	    var b = new THREE.Mesh( bubbleGeometry, material );
+	    b.position.x = bubble.p.x;
+	    b.position.y = -bubble.p.y;
+	    b.position.z = 1;
+	    return b;
+    }
+    
+    var initBubblesModels = function(){
+	    
+	    // grid bubbles mesh creation and association
+        for (var i=0; i< world.bubblegrid.slots.length; i++)
+            for (var j=0; j<world.bubblegrid.slots[0].length;j++)
+                if (world.bubblegrid.slots[i][j] != null){
+                    var b = world.bubblegrid.slots[i][j];
+                    var mesh = createBubbleModel(b); 
+                    b.mesh = mesh;
+                    scene.add(mesh);
+                }
+    }
+    
+    var updateBubbleModelProperties =  function(bubble){
+        bubble.mesh.position.x = bubble.p.x;
+        bubble.mesh.position.y = -bubble.p.y;
+    }
+
+    var updateModelsProperties = function(){
+    	
+    	// instancio modelo para nextBubble si no existe
+    	if (world.nextBubble.mesh == undefined){
+            console.log("instanciando proxima burbuja");
+	        nextBubbleModel = createBubbleModel(world.nextBubble);
+            world.nextBubble.mesh = nextBubbleModel;
+    	    scene.add(nextBubbleModel);
+        }
+        
+        var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
+
+
+        // burbujas de la grilla
+        for (var i=0; i< world.bubblegrid.slots.length; i++)
+            for (var j=0; j<world.bubblegrid.slots[0].length;j++)
+                if (world.bubblegrid.slots[i][j] != null){
+                    var b = world.bubblegrid.slots[i][j];
+                    updateBubbleModelProperties(b);
+                }
+
+        // burbujas libres
+        for (var i=0; i< world.bubbles.length;i++){
+            b = world.bubbles[i];
+            updateBubbleModelProperties(b);
+        }        
+        
+        //Dibujo la burbuja que se esta disparando
+        var b = world.firedBubbles[0];
+        if (b) updateBubbleModelProperties(b);
+        
+    }
+    
+    return {
+        
+        init:function(width,height,w){
+
+            //creo escena
+            scene = new THREE.Scene();
+
+            //instancio camara ortografica
+//          camera = new THREE.OrthographicCamera( 0, width, 0, -height, 1, 1000 );
+ 			camera = new THREE.PerspectiveCamera( 75, width/height, 0.1, 1000 );
+
+			camera.position.x = width/2;
+			camera.position.y = -height*3/4;
+			camera.position.z = 300;
+									
+			camera.lookAt(new THREE.Vector3(width/2,-height/1.75,0));
+            
+            //instancio renderer WebGL
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(width,height);
+            //agrego el elemento canvas para el renderer 3D
+            document.body.appendChild( renderer.domElement );
+
+            world = w;
+
+            initGeometries();
+            initMaterials();
+            initBoardModel();
+            initBubblesModels();
+
+        },
+        
+        drawWorld:function(w){
+            updateModelsProperties();
+            renderer.render(scene, camera);
+        },
+    }
+})();
 
 var Renderer = (function(){
 
-    var drawBoard = function(dc,x,y,w,h){
-        dc.fillStyle = "rgb(20,20,250)";        
-        dc.fillRect(0,0,w,h);
-    }
 
     var color = ["rgba(255,0,0,0.5)","green","blue","yellow","white"];
     var bw = 25;
@@ -563,7 +724,13 @@ var Renderer = (function(){
     var greenBubble = document.createElement('canvas');
     var redBubble = document.createElement('canvas');
     var bubblesRenders = []; 
-    
+
+    var drawBoard = function(dc,x,y,w,h){
+        dc.fillStyle = "rgb(100,100,100)";
+        dc.fillRect(0,0,w,h);
+        dc.strokeStyle = "rgb(0,0,0)";
+        dc.strokeRect(0,0,w,h);
+    }    
 
     var drawBubble = function(bubble,dc){
         dc.beginPath();
@@ -581,6 +748,13 @@ var Renderer = (function(){
         }
         dc.strokeStyle = "#FF0000";
         dc.strokeRect(0,0,1,1);
+    };
+    
+    var drawBubbleXY = function(bubble,dc,x,y){
+        dc.save();
+        dc.translate(x-bw/2,y-bh/2);
+        dc.drawImage(bubblesRenders[bubble.value],0,0);
+        dc.restore();
     };
 
     //prerender de bolas
@@ -611,25 +785,11 @@ var Renderer = (function(){
         drawText:function(text,x,y){
             dc.fillText(text,x,y);
         },
-
-        drawBubbleXY:function(bubble,dc,x,y){
-            dc.save();
-            dc.translate(x-bw/2,y-bh/2);
-            dc.drawImage(bubblesRenders[bubble.value],0,0);
-            dc.restore();
-        },
-        
-        drawBoard:function(dc,x,y,w,h){
-            dc.fillStyle = "rgb(100,100,100)";
-            dc.fillRect(0,0,w,h);
-            dc.strokeStyle = "rgb(0,0,0)";
-            dc.strokeRect(0,0,w,h);
-        },
         
         drawWorld:function(world,dc,dc2){
         
             //Dibujo el tablero
-            Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
+            drawBoard(dc,world.x,world.y,world.w,world.h);
             
             //Dibujo las lineas de la grilla de burbujas
             dc.strokeStyle = "#555555";
@@ -647,23 +807,23 @@ var Renderer = (function(){
                 for (var j=0; j<world.bubblegrid.slots[0].length;j++)
                     if (world.bubblegrid.slots[i][j] != null){
                         var b = world.bubblegrid.slots[i][j];
-                        Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                        drawBubbleXY(b,dc,b.p.x,b.p.y);
                     }
             dc.restore();
             
             //Dibujo burbujas libres
             for (var i=0; i< world.bubbles.length;i++){
                 b = world.bubbles[i];
-                Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+                drawBubbleXY(b,dc,b.p.x,b.p.y);
             }
             
             //Dibujo la burbuja que se esta disparando
             var b = world.firedBubbles[0];
-            if (b) Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+            if (b) drawBubbleXY(b,dc,b.p.x,b.p.y);
             
             //Dibujo la proxima burbuja a ser disparada
             var b = world.nextBubble;                
-            Renderer.drawBubbleXY(b,dc,b.p.x,b.p.y);
+            drawBubbleXY(b,dc,b.p.x,b.p.y);
             
             //Dibujo textos con puntajes y demás info
             Renderer.setTextFont("12px sans-serif","rgb(0,0,0)");
@@ -823,10 +983,15 @@ World.prototype.stepFreeBubbles = function(dt){
         if(/*b.p.x > this.w ||*/ b.p.y > this.h /*|| b.p.y < 0(0-4*b.r)*/)
             this.deadBubbles.push(i);
     }    
-    //quito las que no estan mas en pantallas;
+}
+
+// No se esta llamando #TODO: eliminar
+World.prototype.removeDeadBubbles = function(){
+    //quito las que no estan mas en pantalla;
     if(this.deadBubbles.length>0){
-        for (var j = 0; j< this.deadBubbles.length;j++)
-            this.bubbles[this.deadBubbles[j]] = null;
+        for (var j = 0; j< this.deadBubbles.length;j++){
+            this.bubbles[this.deadBubbles[j]] = null;        
+        }
         this.bubbles = this.bubbles.filter(function(v){return (v!=null)});        
         this.deadBubbles.length = 0; 
     }
@@ -908,7 +1073,6 @@ var init = function(){
     })();
 
 
-
     var c = document.getElementById("c");
     var c2 = document.getElementById("c2");
             
@@ -941,6 +1105,7 @@ var init = function(){
         w = new World(c.width,c.height);
         w.setup();
     }
+    
     
     var menuitem = document.getElementById("action_restart");
     menuitem.onclick = restart_game;
@@ -987,6 +1152,10 @@ var init = function(){
 
     // create world
     restart_game();
+    
+    //inicializo renderer 3D
+    Renderer3D.init(c.width,c.height,w);
+
         
     function gameLoop(oldtime){
     
@@ -1009,6 +1178,7 @@ var init = function(){
 
         // draw
         Renderer.drawWorld(w,dc,dc2);
+        Renderer3D.drawWorld(w);
 
         // request next frame
         requestAnimationFrame(function(){gameLoop(now)},c);
