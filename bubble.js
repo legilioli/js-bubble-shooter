@@ -574,14 +574,14 @@ var Renderer3D = (function(){
     // materiales
     var materials = {
         bubbles:[
-            new THREE.MeshBasicMaterial({ color: colors.red }),
-            new THREE.MeshBasicMaterial({ color: colors.green }),
-            new THREE.MeshBasicMaterial({ color: colors.blue }),
-            new THREE.MeshBasicMaterial({ color: colors.yellow }),
-            new THREE.MeshBasicMaterial({ color: colors.white })
+            new THREE.MeshLambertMaterial({ color: colors.red }),
+            new THREE.MeshLambertMaterial({ color: colors.green }),
+            new THREE.MeshLambertMaterial({ color: colors.blue }),
+            new THREE.MeshLambertMaterial({ color: colors.yellow }),
+            new THREE.MeshLambertMaterial({ color: colors.white })
         ],
-        line:new THREE.LineBasicMaterial({color: colors.line}),
-        board:new THREE.MeshBasicMaterial({color: colors.board})
+        line:new THREE.MeshLambertMaterial({color: colors.line}),
+        board:new THREE.MeshLambertMaterial({color: colors.board})
     };
 
     // geometrias
@@ -596,8 +596,8 @@ var Renderer3D = (function(){
     var stats = null;
 
     var initGeometries = function (){
-        bubbleGeometry = new THREE.CircleGeometry(world.bw/2,4);
-        //bubbleGeometry = new THREE.SphereGeometry(world.bw/2,8,8);
+//        bubbleGeometry = new THREE.CircleGeometry(world.bw/2,4,4);
+        bubbleGeometry = new THREE.SphereGeometry(world.bw/2,16,16);
     }
 
     var initBoardModel = function(){
@@ -606,6 +606,7 @@ var Renderer3D = (function(){
   	    boardModel = new THREE.Mesh( geometry, materials.board );
         boardModel.position.x = world.w/2;
     		boardModel.position.y = -world.h/2;
+        boardModel.position.z = -world.bh-1;
 
     		scene.add( boardModel );
 
@@ -616,10 +617,10 @@ var Renderer3D = (function(){
                 var pos = world.bubblegrid.getCoordForPos(i,j);
                 var geometry = new THREE.Geometry();
                 geometry.vertices.push(
-                    new THREE.Vector3(pos.x, -pos.y, 0.2),
-                    new THREE.Vector3(pos.x + world.bw, -pos.y, 0.2),
-                    new THREE.Vector3(pos.x + world.bw, -pos.y -world.bw, 0.2),
-                    new THREE.Vector3(pos.x, -pos.y -world.bw, 0.2)
+                    new THREE.Vector3(pos.x, -pos.y, -world.bh-1+0.2),
+                    new THREE.Vector3(pos.x + world.bw, -pos.y, -world.bh-1+ 0.2),
+                    new THREE.Vector3(pos.x + world.bw, -pos.y -world.bw,-world.bh-1+ 0.2),
+                    new THREE.Vector3(pos.x, -pos.y -world.bw, -world.bh-1+0.2)
                 );
                 gridLinesModel.add(new THREE.Line(geometry,materials.line));
             }
@@ -645,6 +646,16 @@ var Renderer3D = (function(){
                     b.mesh = mesh;
                     scene.add(mesh);
                 }
+    }
+
+    var initLights = function(){
+      var omniLight = new THREE.PointLight(0xFFFFFF,1);
+      omniLight.position.set(world.w/2,-world.h/2,50);
+//      var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10,10,10),materials.bubbles[2]);
+//      lightMesh.position.copy(omniLight.position);
+//      scene.add(lightMesh);
+
+      scene.add(omniLight);
     }
 
     var updateBubbleModelProperties =  function(bubble){
@@ -691,10 +702,10 @@ var Renderer3D = (function(){
             //instancio camara ortografica
             //camera = new THREE.OrthographicCamera( 0, width, 0, -height, 1, 1000 );
  			      camera = new THREE.PerspectiveCamera( 75, width/height, 0.1, 1000 );
-      			camera.position.x = width/2;
-      			camera.position.y = -height*3/4;
-      			camera.position.z = 300;
-      			camera.lookAt(new THREE.Vector3(width/2,-height/1.75,0));
+      			camera.position.x = world.w/2;
+      			camera.position.y = -world.h*3/4;
+      			camera.position.z = world.w;
+      			camera.lookAt(new THREE.Vector3(world.w/2,-world.h/1.75,0));
 
             //instancio renderer WebGL
             renderer = new THREE.WebGLRenderer();
@@ -706,6 +717,7 @@ var Renderer3D = (function(){
             initGeometries();
             initBoardModel();
             initBubblesModels();
+            initLights();
 
             // estadisticas (FPS counter)
             stats = new Stats();
@@ -1161,7 +1173,7 @@ var init = function(){
     restart_game();
 
     //inicializo renderer 3D
-    Renderer3D.init(c.width,c.height,w);
+    Renderer3D.init(c.width*1.5,c.height*1.5,w);
 
 
     function gameLoop(oldtime){
