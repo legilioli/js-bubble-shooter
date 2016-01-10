@@ -649,6 +649,8 @@ var Renderer3D = (function(){
     }
 
     var initLights = function(){
+      var light = new THREE.AmbientLight( 0x303030 ); // soft white light
+      scene.add( light );
       var omniLight = new THREE.PointLight(0xFFFFFF,1);
       omniLight.position.set(world.w/2,-world.h/2,50);
 //      var lightMesh = new THREE.Mesh(new THREE.BoxGeometry(10,10,10),materials.bubbles[2]);
@@ -708,7 +710,7 @@ var Renderer3D = (function(){
       			camera.lookAt(new THREE.Vector3(world.w/2,-world.h/1.75,0));
 
             //instancio renderer WebGL
-            renderer = new THREE.WebGLRenderer();
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(width,height);
 
             //agrego el elemento canvas para el renderer 3D
