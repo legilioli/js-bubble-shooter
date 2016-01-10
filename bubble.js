@@ -559,6 +559,8 @@ var Renderer3D = (function(){
     var scene = null;
     var camera = null;
     var renderer = null;
+    var cameraControls = null;
+    var clock = new THREE.Clock();
 
     // colores
     var colors = {
@@ -574,11 +576,11 @@ var Renderer3D = (function(){
     // materiales
     var materials = {
         bubbles:[
-            new THREE.MeshLambertMaterial({ color: colors.red }),
-            new THREE.MeshLambertMaterial({ color: colors.green }),
-            new THREE.MeshLambertMaterial({ color: colors.blue }),
-            new THREE.MeshLambertMaterial({ color: colors.yellow }),
-            new THREE.MeshLambertMaterial({ color: colors.white })
+            new THREE.MeshPhongMaterial({ color: colors.red }),
+            new THREE.MeshPhongMaterial({ color: colors.green }),
+            new THREE.MeshPhongMaterial({ color: colors.blue, specular: 0xC0C0F0, shininess: 5}  ),
+            new THREE.MeshPhongMaterial({ color: colors.yellow }),
+            new THREE.MeshPhongMaterial({ color: colors.white })
         ],
         line:new THREE.MeshLambertMaterial({color: colors.line}),
         board:new THREE.MeshLambertMaterial({color: colors.board})
@@ -690,6 +692,7 @@ var Renderer3D = (function(){
         //Dibujo la burbuja que se esta disparando
         var b = world.firedBubbles[0];
         if (b) updateBubbleModelProperties(b);
+        
     }
 
     return {
@@ -703,11 +706,11 @@ var Renderer3D = (function(){
 
             //instancio camara ortografica
             //camera = new THREE.OrthographicCamera( 0, width, 0, -height, 1, 1000 );
- 			      camera = new THREE.PerspectiveCamera( 75, width/height, 0.1, 1000 );
-      			camera.position.x = world.w/2;
-      			camera.position.y = -world.h*3/4;
-      			camera.position.z = world.w;
-      			camera.lookAt(new THREE.Vector3(world.w/2,-world.h/1.75,0));
+ 			camera = new THREE.PerspectiveCamera( 75, width/height, 0.1, 1000 );
+      		camera.position.x = world.w/2;
+      		camera.position.y = -world.h*3/4;
+      		camera.position.z = world.w;
+      		camera.lookAt(new THREE.Vector3(world.w/2,-world.h/1.75,0));
 
             //instancio renderer WebGL
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -715,6 +718,11 @@ var Renderer3D = (function(){
 
             //agrego el elemento canvas para el renderer 3D
             document.body.appendChild( renderer.domElement );
+
+        
+        	cameraControls = new THREE.OrbitAndPanControls(camera, renderer.domElement);
+        	cameraControls.target.set(world.w/2,-world.h/1.75,0);
+
 
             initGeometries();
             initBoardModel();
@@ -729,6 +737,8 @@ var Renderer3D = (function(){
 
         drawWorld:function(w){
             stats.begin();
+            var delta = clock.getDelta();
+           	cameraControls.update(delta);
             updateModelsProperties();
             renderer.render(scene, camera);
             stats.end();
