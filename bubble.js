@@ -261,10 +261,6 @@ Grid.prototype.markBubble2 = function(i,j){
         }
 };
 
-
-
-
-
 Grid.prototype.markBubble = function(i,j,value){
     this.slots[i][j].setMarked(true);
     this.marked.push({i:i,j:j});
@@ -564,8 +560,7 @@ var Renderer = (function(){
     var redBubble = document.createElement('canvas');
     var bubblesRenders = []; 
     
-
-    var drawBubble = function(bubble,dc){
+    var drawBubble = function(bubble,dc,debug){
         dc.beginPath();
         dc.fillStyle = color[bubble.value];//bubble.color;
         dc.lineWidth = 1.5;
@@ -575,12 +570,12 @@ var Renderer = (function(){
         dc.stroke();
         dc.closePath();
         dc.lineWidth = 1.0;
-        if(bubble.mark){
+        /*if (debug) {
             dc.strokeStyle = "#00FF00";
             dc.strokeRect(-bubble.r,-bubble.r,bubble.r*2,bubble.r*2);
-        }
-        dc.strokeStyle = "#FF0000";
-        dc.strokeRect(0,0,1,1);
+            dc.strokeStyle = "#FF0000";
+            dc.strokeRect(0,0,1,1);
+        }*/
     };
 
     //prerender de bolas
@@ -626,19 +621,22 @@ var Renderer = (function(){
             dc.strokeRect(0,0,w,h);
         },
         
-        drawWorld:function(world,dc,dc2){
+        drawWorld:function(game,dc,dc2){
         
+            var world = game.world;
+
             //Dibujo el tablero
             Renderer.drawBoard(dc,world.x,world.y,world.w,world.h);
             
             //Dibujo las lineas de la grilla de burbujas
+            if (this.debug) {
             dc.strokeStyle = "#555555";
             for(var i=0; i<world.bubblegrid.slots.length;i++)
                 for(var j=0; j<world.bubblegrid.slots[i].length;j++){
                     var pos = world.bubblegrid.getCoordForPos(i,j);
                     dc.strokeRect(pos.x,pos.y,world.bw,world.bh);                        
                 }
-                
+            }
             //Dibujo las burbujas de la grilla
             var dx = (world.bubblegrid.state == Grid.prototype.states.SHAKING)?Math.sin(world.bubblegrid.shakeRot)*world.bw/6:0;
             dc.save();
@@ -667,11 +665,14 @@ var Renderer = (function(){
             
             //Dibujo textos con puntajes y demás info
             Renderer.setTextFont("12px sans-serif","rgb(0,0,0)");
-            Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
+
 //            Renderer.drawText("Bubbles: " + world.bubbles.length,10,372);
-            Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,384);
-            Renderer.drawText("Points: " + world.points,10,396);
-            Renderer.drawText("Time: " + Math.floor(world.endGameAlarm.getRemaining()/1000),10,350);
+            if (this.debug){ 
+            Renderer.drawText("Firing: " + (world.firedBubbles.length>0),10,350);
+            Renderer.drawText("FPS: " + FPSCounter.getFPS(),10,360);
+            }
+            Renderer.drawText("Score: " + world.points,10,396);
+            Renderer.drawText("Time: " + Math.floor(game.endGameAlarm.getRemaining())/1000,10,384);
     
             //Dibujo textos flotantes de los puntajes
             Renderer.setTextFont("15px italic arial,sans-serif strong","rgb(0,0,0)");
@@ -680,7 +681,7 @@ var Renderer = (function(){
 
             //Si esta en pausa dibujo mensaje de pausa
             dc2.clearRect(0,0,world.w,world.h);
-            if (world.state == World.states.PAUSED){
+            if (game.state != Game.states.RUNNING){
                 dc2.fillStyle = "rgba(0,0,0,0.5)";
                 dc2.fillRect(0,0,world.w,world.h);
             }
@@ -696,7 +697,7 @@ function World(w,h){
     this.w=w;
     this.h=h;
     this.g=-1;
-    this.quantum = 1000/90
+    this.quantum = 1000/90;
     this.bubblegrid = new Grid(Math.floor(this.h/this.bw),Math.floor(this.w/this.bw),this.bw,this.bh);
     this.bubbles = [];
     this.deadBubbles = [];
@@ -740,6 +741,10 @@ World.prototype.pause = function(){
     }
 }
 
+World.prototype.end = function(){
+    this.bubblegrid.popAllBubbles();
+}
+
 World.prototype.createNextBubble = function(){
     var b = new Bubble(this.w/2,this.h-this.bw/2,this.bw/2);
     var values = this.bubblegrid.getBubblesValues();
@@ -767,12 +772,6 @@ World.prototype.setup = function(){
             this.bubblegrid.addBubble(b,j,i);
         }
     this.nextBubble = this.createNextBubble();
-    var grid = this.bubblegrid;
-    this.endGameCallback = function(){
-        grid.popAllBubbles();
-    }
-    this.endGameAlarm = new Alarm(60000,this.endGameCallback);
-    this.endGameAlarm.start();
     this.quantum = 1000/180;
     this.state = World.states.RUNNING;
 }
@@ -795,7 +794,6 @@ World.prototype.step = function(dt){
         this.bubblegrid.step(dt);
         this.stepFreeBubbles(dt);
         this.pointTexts.step(dt);
-        this.endGameAlarm.step(dt);
     }
     
 }
@@ -869,8 +867,10 @@ World.prototype.testCollision = function(){
 
 World.prototype.fireBubble = function(target){
     if(this.firedBubbles.length==0){
+        // console.log("bubble fired.");
+        // console.log(target);
         this.shots++;
-        var dir = {x:target.x-w.w/2,y:target.y-this.h+1};
+        var dir = {x:target.x-this.w/2,y:target.y-this.h+1};
         var b = this.getNextBubble();
         var norma = Math.sqrt(dir.x*dir.x+dir.y*dir.y);
         b.v.x = dir.x/norma *0.9;
@@ -892,6 +892,110 @@ World.prototype.moveGrid = function(){
         }
 }
 
+function Game(width, height, platform){
+    this.platform = platform;
+    this.world_width = width;
+    this.world_height = height;
+    this.state = Game.states.RUNNING;
+    this.rederer = Renderer;
+    this.debug = true;
+    this.restart();
+}
+
+Game.states = {
+    OVER:0,
+    PAUSED:1,
+    RUNNING:2,
+};
+
+Game.prototype.processInput = function(input) {
+    var g = this;
+    if (input.keysDown){
+        input.keysDown.forEach( function(key){
+            switch (key) {
+                case 13:
+                    g.pause();            
+                case 82:
+                    /* 'r' was pressed */
+                case 38:
+                    /* Up arrow was pressed */
+                       break;
+                case 40:
+                    /* Down arrow was pressed */
+                    break;
+                case 37:
+                    /* Left arrow was pressed */
+                    break;
+                case 39:
+                    /* Right arrow was pressed */
+                    break;
+                case 68:
+                    g.debug = !g.debug;
+                    Renderer.debug = g.debug;
+                    // DEBUG "D" key pressed
+            }
+       });
+    }
+
+    if (input.mouseclick){
+        if (this.state == Game.states.RUNNING){
+            var wpos = {x:input.mousepos.x,y:input.mousepos.y};
+            this.world.fireBubble(wpos);
+        }
+    }
+
+}
+
+Game.prototype.pause = function() {
+    switch(this.state) {
+        case Game.states.RUNNING:
+            this.state = Game.states.PAUSED;
+            this.platform.pause_resume();
+            break;
+        case Game.states.PAUSED:
+            this.state = Game.states.RUNNING;
+            this.platform.pause_resume();
+            break;
+            break;    
+    }
+}
+
+Game.prototype.end = function(){
+    this.world.end();
+    this.state = Game.states.GAME_OVER;
+    this.platform.endGame();
+
+}
+
+Game.prototype.restart = function() {
+    
+    // restart world
+    this.world = new World(this.world_width,this.world_height);
+    this.world.setup();
+
+    var game = this;
+    var endGameCallback = function (){
+        game.end();
+    };
+
+    this.endGameAlarm = new Alarm(60000,endGameCallback);
+    this.endGameAlarm.start();
+
+    this.state = Game.states.RUNNING;
+}
+
+Game.prototype.step = function(dt) {
+    if (this.state != Game.states.PAUSED){
+        this.world.step(dt);
+        this.endGameAlarm.step(dt);
+    }
+}
+
+Game.prototype.render = function(dc1,dc2) {
+    // draw
+    Renderer.drawWorld(this,dc,dc2);
+}
+
 
 var init = function(){
 
@@ -909,84 +1013,89 @@ var init = function(){
 
 
 
+    // canvas para render del juego
     var c = document.getElementById("c");
-    var c2 = document.getElementById("c2");
-            
     dc = c.getContext("2d");
+    
+    // canvas para reder de UI
+    var c2 = document.getElementById("c2");        
     dc2 = c2.getContext("2d");
+
+    
+    var game_input = { 
+        keysDown:[], 
+        mouseClick:false,
+        mousePos:null
+    };
+
+    var platform = {
+        pause_resume: function(){
+            var menu= document.getElementById("menu-pause");
+            if (menu.style.display == "block"){
+                menu.style.display = "none"; 
+            } else {
+                menu.style.display = "block"; 
+            }
+        },
+        getMenuItemRestart:function(){
+            return document.getElementById("action_restart");
+        },
+        getMenuItemResume:function(){
+            return document.getElementById("action_resume");
+        },
+        getMenuItemPlayAgain:function(){
+            return document.getElementById("action_replay");
+        },
+        positionMenu: function(menuId){
+            var menu = document.getElementById(menuId);
+            console.log(menu);
+            
+            var wm = (c.width/2 - menu.offsetWidth/2);
+            var hm = (c.height/2 - menu.offsetHeight/2);
+            menu.style.top = hm + "px";
+            menu.style.left = wm + "px";
+            menu.style.display = "none";
+        },
+        endGame: function(){
+           var gameOverMenu = document.getElementById("menu-game-over");
+           gameOverMenu.style.display = "block";
+        }
+
+    };
+
+    // Game object
+    var game = new Game(c.width, c.height, platform);
       
-    // menu
-    var menuElement = document.getElementById("menu-items");
-
-    var position_menu = function() {
-        var wm = (c.width/2 - menuElement.offsetWidth/2);
-        var hm = (c.height/2 - menuElement.offsetHeight/2);
-        menuElement.style.top = hm + "px";
-        menuElement.style.left = wm + "px";
-        menuElement.style.display = "none";
-    }
-  
-    // acciones
-    var pause_resume = function(){
-        w.pause();
-        if(w.state == World.states.PAUSED){
-            menuElement.style.display = "block";
-        } else {
-            menuElement.style.display = "none";
-        }    
-    }
+    platform.getMenuItemResume().onclick = function(){
+        game.pause();   
+    };
     
-    var restart_game = function(){
-        position_menu();
-        w = new World(c.width,c.height);
-        w.setup();
+    platform.getMenuItemRestart().onclick = function(){
+        document.getElementById("menu-pause").style.display = "none";
+        game.restart();   
+    };
+    platform.getMenuItemPlayAgain().onclick = function(){
+        document.getElementById("menu-game-over").style.display = "none";
+        game.restart();
     }
-    
-    var menuitem = document.getElementById("action_restart");
-    menuitem.onclick = restart_game;
-
-    var menuitem = document.getElementById("action_resume");
-    menuitem.onclick = pause_resume;
-
-
+   
     // mouse input
-
-    var mouseclick = false;
-    var mousepos = null;
-
-    c2.onclick = function(evt){
-        mousepos = c.relMouseCoords(evt);
-        mouseclick = true;
-    }
-
+    c2.addEventListener('click', function(evt){
+        console.log("mouse clicked c2");
+        game_input.mousepos = c.relMouseCoords(evt);
+        game_input.mouseclick = true;
+    }, false);
 
     // keyboard input
     function KeyDown(evt) {
-        switch (evt.keyCode) {
-
-	        case 13:
-                pause_resume();            
-	        case 82:
-		        /* 'r' was pressed */
-	        case 38:
-		        /* Up arrow was pressed */
-                   break;
-	        case 40:
-		        /* Down arrow was pressed */
-		        break;
-	        case 37:
-		        /* Left arrow was pressed */
-		        break;
-	        case 39:
-		        /* Right arrow was pressed */
-        }
+    //    console.log(evt.keyCode);
+        game_input.keysDown.push(evt.keyCode);
     }
-    
 
     window.addEventListener('keydown', KeyDown, true);
+    platform.positionMenu("menu-pause");
+    platform.positionMenu("menu-game-over");
 
-    // create world
-    restart_game();
         
     function gameLoop(oldtime){
     
@@ -994,21 +1103,21 @@ var init = function(){
         var now = (new Date()).getTime();
         var dt = now - oldtime ;        
         
-        // process input
-        if(mouseclick){
-            if (w.state == World.states.RUNNING){
-                var wpos = {x:mousepos.x,y:mousepos.y};
-                w.fireBubble(wpos);
-            }
-            mouseclick = false;
+        // process input if any input event received
+        if( game_input.mouseclick || (game_input.keysDown.length > 0)){
+            game.processInput(game_input);
+            game_input.mouseclick = false;
+            game_input.keysDown = [];
         }
 
-        // step world
-        w.step(dt);
-        FPSCounter.frame();
+        // step simulation
+        game.step(dt);
 
         // draw
-        Renderer.drawWorld(w,dc,dc2);
+        game.render(dc,dc2);
+
+        // frame generation time
+        FPSCounter.frame();
 
         // request next frame
         requestAnimationFrame(function(){gameLoop(now)},c);

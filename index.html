@@ -21,7 +21,7 @@
 
     
     
-    #menu-items {
+    #menu-pause {
         position:absolute;
         top:100px;
         left:100px;
@@ -32,9 +32,12 @@
         background-color:rgba(0,0,128,0.6);
         border-radius: 8px;
     }
-
  
-    #menu-items li{
+    .menu-items {
+        padding:0px;
+    }
+
+    .menu-items li{
         display:block;
         margin-top: 10px;
         margin-bottom: 10px;
@@ -50,8 +53,26 @@
         border-radius: 8px;
     }
     
-    #menu-items li:hover{
+    .menu-items li:hover{
         background-color:rgba(0,0,128,1);        
+    }
+
+    #menu-game-over {
+        position:absolute;
+        display:block;
+        top:100px;
+        left:100px;
+        width:200px;
+        padding:0px;
+        margin:0px;
+        list-style-type: none;
+        background-color:rgba(0,0,128,0.6);
+        border-radius: 8px;
+        font-family:sans-serif;
+        color:white;
+    }
+    #menu-game-over h1,h2 {
+        text-align:center;
     }
 
     
@@ -62,11 +83,20 @@
 <div id="container">
     <canvas id="c" width="300" height="400" ></canvas>
     <canvas id="c2" width="300" height="400"></canvas>
-    <ul id="menu-items" >
-        <li id="action_restart">Restart</li>
-        <li id="action_resume">Resume</li>
-        <li id="action_about">About</li>
-    </ul>
+    <div id="menu-pause">
+        <ul class="menu-items">
+            <li id="action_restart">Restart</li>
+            <li id="action_resume">Resume</li>
+            <li id="action_about">About</li>
+        </ul>
+    </div>
+    <div id="menu-game-over" >
+        <h1> Game Over! </h1>
+        <!-- <h2> Score: <span id="final_score"> xx </span></h2>-->
+        <ul class="menu-items">
+            <li id="action_replay">Play Again</li>
+        </ul>
+    </div>
 </div>
 <!--
 <textarea cols="100" rows="23" id="console" disabled="disabled" style="background:#000000; color:#00FF00"></textarea>
