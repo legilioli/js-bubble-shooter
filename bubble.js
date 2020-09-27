@@ -96,6 +96,7 @@ function Grid(rows,cols,bw,bh){
     this.nextY = 0;
     this.shakeRot = 0;
     this.bubblePopUpCallback = null;
+    this.gridLevel  = 0;
 }
 
 Grid.prototype.getBubblesValues = function(f){
@@ -115,6 +116,10 @@ Grid.prototype.setBubblePopUpCallback = function(f){
 
 Grid.prototype.setBubbleFallCallback = function(f){
     this.bubbleFallCallback = f;
+}
+
+Grid.prototype.setGridFinishedMoving = function(f){
+    this.finishedMovingDownCallback = f;
 }
 
 Grid.prototype.states = {
@@ -240,6 +245,17 @@ Grid.prototype.removeBubble = function(i,j){
         this.slots[i][j] = null;
 };
 
+// this could be improved somehow
+Grid.prototype.getBubbleGridHeight = function(){
+    maxi = 0;
+    for(var i=0; i<this.slots.length;i++)
+        for (var j=0; j<this.slots[0].length;j++)
+            if (this.slots[i][j])
+                if ( i > maxi)
+                    maxi = i;
+    return maxi + 1 + this.gridLevel;
+}
+
 Grid.prototype.getAdjacentBubbles = function(i,j){
     var bubbles = [];
     if (this.hasBubbleLeft(i,j)) bubbles.push(this.getBubbleLeft(i,j));
@@ -362,7 +378,8 @@ Grid.prototype.shake = function(doShake){
 Grid.prototype.lowerGrid = function(){
     this.state = this.states.MOVING_DOWN;
     this.nextY = this.baseY + this.bh;
-
+    this.gridLevel++
+    console.log( "lowering grid to level : " + this.gridLevel);
 }
 
 Grid.prototype.step = function(dt){
@@ -374,8 +391,10 @@ Grid.prototype.step = function(dt){
                 for (var j = 0; j < this.slots[i].length;j++)
                     if(this.slots[i][j]!=null)
                     this.slots[i][j].p.y += stepSize*dt;
-            if (this.baseY >= this.nextY)
+            if (this.baseY >= this.nextY){
                 this.state = this.states.STILL;
+                this.finishedMovingDownCallback();
+            }
         break;
         case this.states.SHAKING:
             var rotstep = Math.PI*15;
@@ -718,6 +737,20 @@ function World(w,h){
     this.bubblegrid.setBubbleFallCallback(function(b){
         world.bubbles.push(b);
     });
+    this.bubblegrid.setGridFinishedMoving(function(){
+        var lowest = world.bubblegrid.getBubbleGridHeight();
+        console.log(lowest);
+        world.testGameOver();
+    });
+}
+
+World.prototype.testGameOver = function(){
+    var maxGridLevel = this.h / this.bh;
+    var currentGridLevel = this.bubblegrid.getBubbleGridHeight();
+    console.log("totalLevels: " + currentGridLevel);
+    console.log("test game over");
+    if (currentGridLevel >= maxGridLevel)
+        this.gameOverCallback(); 
 }
 
 World.prototype.bw = 25;
@@ -739,6 +772,10 @@ World.prototype.pause = function(){
             this.state = World.states.RUNNING;
             break;    
     }
+}
+
+World.prototype.setGameOverCallback = function(f){
+    this.gameOverCallback = f;
 }
 
 World.prototype.end = function(){
@@ -861,6 +898,8 @@ World.prototype.testCollision = function(){
                 this.bubblegrid.detachOrphanBubbles();
                 this.firedBubbles.pop();
                 this.moveGrid();
+              // rename callback
+                this.bubblegrid.finishedMovingDownCallback(); 
           }
     }
 }
@@ -964,7 +1003,6 @@ Game.prototype.end = function(){
     this.world.end();
     this.state = Game.states.GAME_OVER;
     this.platform.endGame();
-
 }
 
 Game.prototype.restart = function() {
@@ -978,6 +1016,7 @@ Game.prototype.restart = function() {
         game.end();
     };
 
+    this.world.setGameOverCallback(endGameCallback);
     this.endGameAlarm = new Alarm(60000,endGameCallback);
     this.endGameAlarm.start();
 
