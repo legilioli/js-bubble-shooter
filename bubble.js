@@ -97,6 +97,7 @@ function Grid(rows,cols,bw,bh){
     this.shakeRot = 0;
     this.bubblePopUpCallback = null;
     this.gridLevel  = 0;
+    this.bubbleCount = 0;
 }
 
 Grid.prototype.getBubblesValues = function(f){
@@ -120,6 +121,10 @@ Grid.prototype.setBubbleFallCallback = function(f){
 
 Grid.prototype.setGridFinishedMoving = function(f){
     this.finishedMovingDownCallback = f;
+}
+
+Grid.prototype.setBubbleAttachedCallback = function(f){
+    this.bubbleAttachedCallback = f;
 }
 
 Grid.prototype.states = {
@@ -238,11 +243,13 @@ Grid.prototype.addBubble = function(bubble,i,j){
         bubble.p.x = wpos.x+this.bw/2;
         bubble.p.y = wpos.y+this.bh/2;
         bubble.setActive(false);
+        this.bubbleCount++;
     }
 };
 
 Grid.prototype.removeBubble = function(i,j){
         this.slots[i][j] = null;
+        this.bubbleCount--;
 };
 
 // this could be improved somehow
@@ -742,13 +749,22 @@ function World(w,h){
         var lowest = world.bubblegrid.getBubbleGridHeight();
         world.testGameOver();
     });
+    this.bubblegrid.setBubbleAttachedCallback(function(){
+        world.testGameOver();
+    });
 }
 
 World.prototype.testGameOver = function(){
     var maxGridLevel = this.h / this.bh;
     var currentGridLevel = this.bubblegrid.getBubbleGridHeight();
-    if (currentGridLevel >= maxGridLevel)
-        this.gameOverCallback(); 
+    if (currentGridLevel >= maxGridLevel){
+        this.gameOverCallback("lose"); 
+        return;
+    } 
+    if (this.bubblegrid.bubbleCount <= 0){
+        this.gameOverCallback("win");
+    }
+    
 }
 
 World.prototype.bw = 25;
@@ -896,7 +912,7 @@ World.prototype.testCollision = function(){
                 this.firedBubbles.pop();
                 this.moveGrid();
               // rename callback
-                this.bubblegrid.finishedMovingDownCallback(); 
+                this.bubblegrid.bubbleAttachedCallback(); 
           }
     }
 }
@@ -996,10 +1012,12 @@ Game.prototype.pause = function() {
     }
 }
 
-Game.prototype.end = function(){
+Game.prototype.end = function(evt){
+    console.log("GAME OVER: " + evt);
     this.world.end();
+    this.endGameAlarm.pause();
     this.state = Game.states.GAME_OVER;
-    this.platform.endGame();
+    this.platform.endGame(evt);
 }
 
 Game.prototype.restart = function() {
@@ -1009,13 +1027,21 @@ Game.prototype.restart = function() {
     this.world.setup();
 
     var game = this;
-    var endGameCallback = function (){
-        console.log("GAME OVER");
-        game.end();
+    var endGameCallback = function (evt){
+        if (game.state == Game.states.RUNNING){
+            game.end(evt);
+        }
+    };
+    
+    var gameTimeIsUp = function (){
+        console.log("Time is up");
+        if (game.state == Game.states.RUNNING){
+            game.end("lose");
+        }
     };
 
     this.world.setGameOverCallback(endGameCallback);
-    this.endGameAlarm = new Alarm(60000,endGameCallback);
+    this.endGameAlarm = new Alarm(6000,gameTimeIsUp);
     this.endGameAlarm.start();
 
     this.state = Game.states.RUNNING;
@@ -1092,7 +1118,15 @@ var init = function(){
             menu.style.left = wm + "px";
             menu.style.display = "none";
         },
-        endGame: function(){
+        endGame: function(evt){
+           var gameMessage =  document.getElementById("txt-win-lose");           if (evt == "win"){
+                gameMessage.innerHTML = "You Win!";
+
+                //var score = document.getElementById("txt-score");
+           } else {
+                gameMessage.innerHTML = "Game Over!";
+           }
+
            var gameOverMenu = document.getElementById("menu-game-over");
            gameOverMenu.style.display = "block";
         }
@@ -1168,8 +1202,8 @@ window.onload = init;
 
 // TODOS
 /*
-    DONE - evento game over
-    - evento win
+    x evento game over
+    x evento win
     - corregir calculo de puntaje
     - organizar todas las entidades que pueden ser steppeadas en una lista de entidades (lo que seria ahora world.bubbles)
     - reescribir renderer para adaptarlo a viewport 
