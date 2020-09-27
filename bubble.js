@@ -1041,7 +1041,7 @@ Game.prototype.restart = function() {
     };
 
     this.world.setGameOverCallback(endGameCallback);
-    this.endGameAlarm = new Alarm(6000,gameTimeIsUp);
+    this.endGameAlarm = new Alarm(60 * 1000,gameTimeIsUp);
     this.endGameAlarm.start();
 
     this.state = Game.states.RUNNING;
