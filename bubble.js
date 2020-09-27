@@ -291,8 +291,8 @@ Grid.prototype.markBubble = function(i,j,value){
 };
 
 Grid.prototype.popMarkedBubbles = function(){
-    console.log("popping " +  this.marked.length + " bubbles");
-    if(this.marked.length>2)
+    if(this.marked.length>2){
+        console.log("popping " +  this.marked.length + " bubbles");
         for(var i = 0; i<this.marked.length;i++){
             var p = this.marked[i];
             var b = this.getBubbleAt(p.i,p.j);
@@ -300,6 +300,7 @@ Grid.prototype.popMarkedBubbles = function(){
             b.pop();
             this.removeBubble(p.i,p.j)
         }
+    }
 }
 
 Grid.prototype.popAllBubbles = function(){
@@ -739,7 +740,6 @@ function World(w,h){
     });
     this.bubblegrid.setGridFinishedMoving(function(){
         var lowest = world.bubblegrid.getBubbleGridHeight();
-        console.log(lowest);
         world.testGameOver();
     });
 }
@@ -747,8 +747,6 @@ function World(w,h){
 World.prototype.testGameOver = function(){
     var maxGridLevel = this.h / this.bh;
     var currentGridLevel = this.bubblegrid.getBubbleGridHeight();
-    console.log("totalLevels: " + currentGridLevel);
-    console.log("test game over");
     if (currentGridLevel >= maxGridLevel)
         this.gameOverCallback(); 
 }
@@ -889,10 +887,9 @@ World.prototype.testCollision = function(){
                 if (pos == null) pos = this.bubblegrid.getCellIndexForCoord(b.p.x+b.r,b.p.y);
                 if (pos.j >= this.bubblegrid.slots[pos.i].length)  pos.j = pos.j-1;
                 
-                console.log("attach");
+                //console.log("attach");
                 this.bubblegrid.addBubble(b,pos.i,pos.j);
                 this.bubblegrid.markBubble(pos.i,pos.j,b.value);
-                console.log("se marcaron " + this.bubblegrid.marked.length);
                 this.bubblegrid.popMarkedBubbles();
                 this.bubblegrid.clearMarkedBubbles();
                 this.bubblegrid.detachOrphanBubbles();
@@ -1013,6 +1010,7 @@ Game.prototype.restart = function() {
 
     var game = this;
     var endGameCallback = function (){
+        console.log("GAME OVER");
         game.end();
     };
 
@@ -1087,7 +1085,6 @@ var init = function(){
         },
         positionMenu: function(menuId){
             var menu = document.getElementById(menuId);
-            console.log(menu);
             
             var wm = (c.width/2 - menu.offsetWidth/2);
             var hm = (c.height/2 - menu.offsetHeight/2);
@@ -1120,7 +1117,6 @@ var init = function(){
    
     // mouse input
     c2.addEventListener('click', function(evt){
-        console.log("mouse clicked c2");
         game_input.mousepos = c.relMouseCoords(evt);
         game_input.mouseclick = true;
     }, false);
@@ -1172,7 +1168,9 @@ window.onload = init;
 
 // TODOS
 /*
-    - evento game over
+    DONE - evento game over
+    - evento win
+    - corregir calculo de puntaje
     - organizar todas las entidades que pueden ser steppeadas en una lista de entidades (lo que seria ahora world.bubbles)
     - reescribir renderer para adaptarlo a viewport 
 */
